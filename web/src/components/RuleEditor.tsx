@@ -22,7 +22,7 @@ import { SchemaEditor } from './SchemaEditor';
 import { Select } from './ui/input';
 import { RESPONSE_TYPES, bodyForType } from '@/lib/constants';
 import { api } from '@/lib/api';
-import { buildHttpie, copyText, isValidJson, prettyJson } from '@/lib/utils';
+import { buildHttpie, copyText, isValidJson } from '@/lib/utils';
 import { toast } from './ui/toast';
 
 interface RuleEditorProps {
@@ -103,23 +103,8 @@ export function RuleEditor({
             size="md"
             title="复制 HTTPie 命令"
             onClick={() => {
-              copyText(
-                buildHttpie({
-                  method: rule.method,
-                  url,
-                  headers: Object.fromEntries(
-                    rule.headers
-                      .filter((entry) => entry.key)
-                      .map((entry) => [entry.key, entry.value]),
-                  ),
-                  body:
-                    rule.method === 'GET' || rule.method === 'HEAD'
-                      ? ''
-                      : rule.responseType === 'json'
-                        ? rule.body
-                        : '',
-                }),
-              );
+              // rule.headers / rule.body 是响应头和响应体，不能作为请求内容拼进命令
+              copyText(buildHttpie({ method: rule.method, url }));
               toast('已复制 HTTPie 命令', 'info');
             }}
           >
@@ -195,13 +180,6 @@ export function RuleEditor({
                 ) : (
                   <span className="text-rose-300">JSON 解析失败，保存后仍会原样返回</span>
                 )}
-                <button
-                  type="button"
-                  className="cursor-pointer text-brand-300 hover:underline"
-                  onClick={() => onChange({ body: prettyJson(rule.body) })}
-                >
-                  格式化
-                </button>
               </div>
             </div>
           ) : null}

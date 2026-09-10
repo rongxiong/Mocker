@@ -1,11 +1,14 @@
-import { useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import CodeMirror from '@uiw/react-codemirror';
 import { oneDark } from '@codemirror/theme-one-dark';
 import { json } from '@codemirror/lang-json';
 import { javascript } from '@codemirror/lang-javascript';
 import { html } from '@codemirror/lang-html';
-import { EditorView } from '@codemirror/view';
-import type { Extension } from '@codemirror/state';
+import { EditorView, keymap } from '@codemirror/view';
+import { Prec, type Extension } from '@codemirror/state';
+import { Wand2 } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { toast } from './ui/toast';
 
 export type EditorLanguage = 'json' | 'javascript' | 'html' | 'text';
 
@@ -43,21 +46,74 @@ export function CodeEditor({
   readOnly = false,
   placeholder,
 }: CodeEditorProps) {
-  const extensions = useMemo<Extension[]>(() => {
-    switch (language) {
-      case 'json':
-        return [json()];
-      case 'javascript':
-        return [javascript()];
-      case 'html':
-        return [html()];
-      default:
-        return [];
+  const canFormat = language === 'json' && !readOnly && Boolean(onChange);
+
+  const format = useCallback(() => {
+    if (!onChange) return false;
+    try {
+      onChange(JSON.stringify(JSON.parse(value), null, 2));
+      return true;
+    } catch (error) {
+      toast(`无法格式化：${error instanceof Error ? error.message : 'JSON 不合法'}`, 'error');
+      return false;
     }
-  }, [language]);
+  }, [onChange, value]);
+
+  // the keymap extension is built once, so it reads the handler through a ref
+  const formatRef = useRef(format);
+  useEffect(() => {
+    formatRef.current = format;
+  }, [format]);
+
+  const extensions = useMemo<Extension[]>(() => {
+    const list: Extension[] =
+      language === 'json'
+        ? [json()]
+        : language === 'javascript'
+          ? [javascript()]
+          : language === 'html'
+            ? [html()]
+            : [];
+    if (canFormat) {
+      list.push(
+        Prec.highest(
+          keymap.of([
+            {
+              key: 'Shift-Alt-f',
+              preventDefault: true,
+              run: () => {
+                formatRef.current();
+                return true;
+              },
+            },
+          ]),
+        ),
+      );
+    }
+    return list;
+  }, [language, canFormat]);
 
   return (
     <div className="overflow-hidden rounded-xl border border-white/[0.08] transition-shadow focus-within:border-brand-500/50 focus-within:shadow-glow">
+      {canFormat ? (
+        <div className="flex items-center justify-end border-b border-white/[0.06] bg-white/[0.02] px-2 py-1">
+          <button
+            type="button"
+            onClick={format}
+            title="格式化 JSON（Shift+Alt+F / ⇧⌥F）"
+            className={cn(
+              'flex cursor-pointer items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px]',
+              'text-muted-300 transition-colors hover:bg-white/[0.06] hover:text-brand-300',
+            )}
+          >
+            <Wand2 size={11} />
+            格式化
+            <kbd className="ml-0.5 rounded border border-white/10 px-1 font-sans text-[10px] text-muted-300">
+              ⇧⌥F
+            </kbd>
+          </button>
+        </div>
+      ) : null}
       <CodeMirror
         value={value}
         height={height}
