@@ -1,0 +1,107 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: dark;
+    --brand: #7c5cff;
+    --brand-soft: #a78bfa;
+    --accent: #22d3ee;
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    @apply bg-ink-900 font-sans text-[13px] text-muted-100 antialiased;
+    background-image:
+      radial-gradient(1100px 620px at 12% -8%, rgba(124, 92, 255, 0.18), transparent 60%),
+      radial-gradient(900px 520px at 92% 4%, rgba(34, 211, 238, 0.12), transparent 62%),
+      radial-gradient(700px 700px at 60% 110%, rgba(167, 139, 250, 0.1), transparent 60%);
+    background-attachment: fixed;
+  }
+
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: #2c3346 transparent;
+  }
+
+  ::-webkit-scrollbar {
+    width: 9px;
+    height: 9px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: #2c3346;
+    border-radius: 999px;
+    border: 2px solid transparent;
+    background-clip: content-box;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: #3c4560;
+    background-clip: content-box;
+  }
+
+  input,
+  textarea,
+  select,
+  button {
+    font: inherit;
+  }
+}
+
+@layer components {
+  .glass {
+    @apply border border-white/[0.07] bg-white/[0.035] shadow-panel backdrop-blur-xl;
+  }
+
+  .glass-strong {
+    @apply border border-white/10 bg-ink-800/80 shadow-panel backdrop-blur-2xl;
+  }
+
+  .panel-title {
+    @apply text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-300;
+  }
+
+  .field-label {
+    @apply mb-1.5 block text-[11px] font-medium uppercase tracking-[0.1em] text-muted-300;
+  }
+
+  .hairline {
+    @apply border-white/[0.07];
+  }
+
+  .gradient-text {
+    @apply bg-brand-gradient bg-clip-text text-transparent;
+  }
+
+  .skeleton {
+    @apply relative overflow-hidden bg-white/5;
+  }
+
+  .skeleton::after {
+    content: '';
+    @apply absolute inset-0 -translate-x-full animate-shimmer bg-gradient-to-r from-transparent via-white/10 to-transparent;
+  }
+
+  .cm-editor {
+    @apply rounded-xl text-[12.5px];
+  }
+
+  .cm-editor.cm-focused {
+    @apply outline-none ring-1 ring-brand-500/60;
+  }
+
+  .cm-scroller {
+    font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
+  }
+}
