@@ -63,7 +63,7 @@ adminRouter.post('/variants/reset', (req: Request, res: Response) => {
 });
 
 adminRouter.get('/rules/:id', (req: Request, res: Response) => {
-  const rule = getRule(req.params.id);
+  const rule = getRule(String(req.params.id));
   if (!rule) {
     res.status(404).json({ error: 'Rule not found' });
     return;
@@ -78,7 +78,7 @@ adminRouter.post('/rules', (req: Request, res: Response) => {
 });
 
 adminRouter.put('/rules/:id', (req: Request, res: Response) => {
-  const updated = updateRule(req.params.id, req.body ?? {});
+  const updated = updateRule(String(req.params.id), req.body ?? {});
   if (!updated) {
     res.status(404).json({ error: 'Rule not found' });
     return;
@@ -87,7 +87,7 @@ adminRouter.put('/rules/:id', (req: Request, res: Response) => {
 });
 
 adminRouter.delete('/rules/:id', (req: Request, res: Response) => {
-  const ok = deleteRule(req.params.id);
+  const ok = deleteRule(String(req.params.id));
   if (!ok) {
     res.status(404).json({ error: 'Rule not found' });
     return;
@@ -96,7 +96,7 @@ adminRouter.delete('/rules/:id', (req: Request, res: Response) => {
 });
 
 adminRouter.post('/rules/:id/duplicate', (req: Request, res: Response) => {
-  const source = getRule(req.params.id);
+  const source = getRule(String(req.params.id));
   if (!source) {
     res.status(404).json({ error: 'Rule not found' });
     return;
@@ -215,15 +215,12 @@ adminRouter.post('/import', (req: Request, res: Response) => {
 
   // `replace` wipes the table before writing: keep it atomic so a failure
   // half-way through does not lose the previous rule set.
-  let inserted = 0;
-  let updated = 0;
+  let counts: { inserted: number; updated: number };
   try {
-    const result = transaction(() => {
+    counts = transaction(() => {
       if (payload.mode === 'replace') deleteAllRules();
       return insertMany(normalized);
     });
-    inserted = result.inserted;
-    updated = result.updated;
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     logger.error(`Import failed: ${message}`);
@@ -260,7 +257,12 @@ adminRouter.post('/import', (req: Request, res: Response) => {
     }
   }
 
-  res.json({ imported: inserted, updated, filesRestored, total: countRules() });
+  res.json({
+    imported: counts.inserted,
+    updated: counts.updated,
+    filesRestored,
+    total: countRules(),
+  });
 });
 
 adminRouter.get('/logs', (_req: Request, res: Response) => {

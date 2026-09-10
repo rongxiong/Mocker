@@ -28,6 +28,13 @@ export function createApp(): Express {
   app.use(ADMIN_PREFIX, adminRouter);
   app.use(`${ADMIN_PREFIX}/files`, filesRouter);
 
+  // With an empty mock prefix the console and the mocks share one origin, so the
+  // built assets must be resolved before the catch-all mock router sees them.
+  const hasConsole = fs.existsSync(WEB_DIST_DIR);
+  if (hasConsole) {
+    app.use(express.static(WEB_DIST_DIR, { index: false }));
+  }
+
   const mockMount = MOCK_PREFIX || '/';
   app.use(
     mockMount,
@@ -35,8 +42,7 @@ export function createApp(): Express {
     mockRouter,
   );
 
-  if (fs.existsSync(WEB_DIST_DIR)) {
-    app.use(express.static(WEB_DIST_DIR, { index: false }));
+  if (hasConsole) {
     // A RegExp instead of `'*'`: path-to-regexp 8 (Express 5) rejects bare `*`.
     app.get(/.*/, (req, res, next) => {
       if (req.path.startsWith(ADMIN_PREFIX)) {

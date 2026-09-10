@@ -39,7 +39,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectHTMLAttributes<HTMLSel
     <select
       ref={ref}
       className={cn(
-        "h-8 cursor-pointer appearance-none rounded-lg border border-white/[0.08] bg-ink-900/70 bg-[url(\"data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239AA3B2' stroke-width='3'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E\")] bg-[length:11px] bg-[right_.55rem_center] bg-no-repeat pl-2.5 pr-7 text-[12.5px] text-muted-100",
+        'select-chevron h-8 cursor-pointer appearance-none rounded-lg border border-white/[0.08] bg-ink-900/70 pl-2.5 pr-7 text-[12.5px] text-muted-100',
         'transition-colors focus:border-brand-500/60 focus:outline-none focus:ring-1 focus:ring-brand-500/40',
         '[&>option]:bg-ink-800 [&>option]:text-muted-100',
         className,

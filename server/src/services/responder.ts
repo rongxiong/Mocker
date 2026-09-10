@@ -68,7 +68,7 @@ export async function buildResponse(input: ResponderInput): Promise<ResponderOut
 
   const headers = headersFromRule(rule);
   let status = rule.statusCode || 200;
-  let body: string | Buffer = '';
+  let body: string | Buffer;
   let contentType = rule.contentType?.trim() ?? '';
 
   switch (rule.responseType) {

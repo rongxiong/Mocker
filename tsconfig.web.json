@@ -15,10 +15,9 @@
     "verbatimModuleSyntax": false,
     "noUnusedLocals": false,
     "noUnusedParameters": false,
-    "baseUrl": ".",
     "paths": {
-      "@/*": ["web/src/*"],
-      "@shared/*": ["server/src/*"]
+      "@/*": ["./web/src/*"],
+      "@shared/*": ["./server/src/*"]
     }
   },
   "include": ["web/src/**/*.ts", "web/src/**/*.tsx", "vite.config.ts"]

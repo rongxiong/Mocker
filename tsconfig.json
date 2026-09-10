@@ -14,10 +14,9 @@
     "verbatimModuleSyntax": false,
     "noUnusedLocals": false,
     "noUnusedParameters": false,
-    "baseUrl": ".",
     "paths": {
-      "@shared/*": ["server/src/*"],
-      "@/*": ["web/src/*"]
+      "@shared/*": ["./server/src/*"],
+      "@/*": ["./web/src/*"]
     }
   },
   "include": ["server/src/**/*.ts", "web/src/**/*.ts", "web/src/**/*.tsx"]

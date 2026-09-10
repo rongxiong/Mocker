@@ -1,6 +1,103 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import 'tailwindcss';
+
+/* The v3 JS config (`darkMode: 'class'`) is gone: variants are declared in CSS. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --font-sans: 'Noto Sans', system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
+
+  --color-brand-50: #f2efff;
+  --color-brand-100: #e4deff;
+  --color-brand-200: #c9beff;
+  --color-brand-300: #a78bfa;
+  --color-brand-400: #8b6dff;
+  --color-brand-500: #7c5cff;
+  --color-brand-600: #6344e8;
+  --color-brand-700: #4c34b8;
+
+  --color-accent-300: #67e8f9;
+  --color-accent-400: #22d3ee;
+  --color-accent-500: #06b6d4;
+
+  --color-ink-900: #0b0d12;
+  --color-ink-800: #11141c;
+  --color-ink-700: #171b26;
+  --color-ink-600: #1e2331;
+  --color-ink-500: #272d3d;
+
+  --color-muted-100: #e6e9f2;
+  --color-muted-200: #9aa3b2;
+  --color-muted-300: #6b7385;
+
+  --color-ok: #34d399;
+  --color-warn: #fbbf24;
+  --color-danger: #f87171;
+  --color-info: #38bdf8;
+
+  --shadow-glow: 0 0 0 1px rgba(124, 92, 255, 0.35), 0 12px 40px -12px rgba(124, 92, 255, 0.55);
+  --shadow-panel: 0 18px 50px -24px rgba(0, 0, 0, 0.85);
+
+  --background-image-brand-gradient: linear-gradient(120deg, #7c5cff 0%, #a78bfa 45%, #22d3ee 100%);
+  --background-image-panel-sheen: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.06) 0%,
+    rgba(255, 255, 255, 0) 42%
+  );
+
+  --animate-fade-in: fade-in 0.25s ease-out both;
+  --animate-fade-in-fast: fade-in-fast 0.18s ease-out both;
+  --animate-slide-up: slide-up 0.22s cubic-bezier(0.16, 1, 0.3, 1) both;
+  --animate-shimmer: shimmer 1.6s infinite;
+  --animate-pulse-soft: pulse-soft 1.6s ease-in-out infinite;
+
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+      transform: translateY(4px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes fade-in-fast {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  @keyframes slide-up {
+    from {
+      opacity: 0;
+      transform: translateY(12px) scale(0.98);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
+
+  @keyframes shimmer {
+    100% {
+      transform: translateX(100%);
+    }
+  }
+
+  @keyframes pulse-soft {
+    0%,
+    100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.55;
+    }
+  }
+}
 
 @layer base {
   :root {
@@ -90,7 +187,7 @@
 
   .skeleton::after {
     content: '';
-    @apply absolute inset-0 -translate-x-full animate-shimmer bg-gradient-to-r from-transparent via-white/10 to-transparent;
+    @apply absolute inset-0 -translate-x-full animate-shimmer bg-linear-to-r from-transparent via-white/10 to-transparent;
   }
 
   .cm-editor {
@@ -103,5 +200,14 @@
 
   .cm-scroller {
     font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
+  }
+
+  /* A data URI cannot live in an arbitrary value (`bg-[url(...)]`): class
+     candidates are split on commas, so the URI gets truncated at `svg+xml,`. */
+  .select-chevron {
+    background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239AA3B2' stroke-width='3'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+    background-size: 11px;
+    background-position: right 0.55rem center;
+    background-repeat: no-repeat;
   }
 }

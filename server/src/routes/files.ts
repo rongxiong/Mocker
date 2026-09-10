@@ -58,7 +58,7 @@ filesRouter.post('/upload', (req: Request, res: Response) => {
 });
 
 filesRouter.get('/:id/download', (req: Request, res: Response) => {
-  const record = getFile(req.params.id);
+  const record = getFile(String(req.params.id));
   if (!record) {
     res.status(404).json({ error: 'File not found' });
     return;
@@ -72,7 +72,7 @@ filesRouter.get('/:id/download', (req: Request, res: Response) => {
 });
 
 filesRouter.delete('/:id', (req: Request, res: Response) => {
-  const record = getFile(req.params.id);
+  const record = getFile(String(req.params.id));
   if (!record) {
     res.status(404).json({ error: 'File not found' });
     return;
@@ -98,6 +98,6 @@ filesRouter.delete('/:id', (req: Request, res: Response) => {
 
   const filePath = path.join(UPLOAD_DIR, path.basename(record.storedName));
   if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
-  deleteFile(req.params.id);
+  deleteFile(String(req.params.id));
   res.json({ ok: true });
 });

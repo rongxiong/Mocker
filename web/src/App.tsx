@@ -44,7 +44,7 @@ export default function App() {
     [rules],
   );
 
-  const baseUrl = `${window.location.origin}${info?.mockPrefix ?? '/mock'}`;
+  const baseUrl = `${window.location.origin}${info?.mockPrefix ?? ''}`;
 
   const toggleAutoSave = (next: boolean) => {
     setAutoSave(next);

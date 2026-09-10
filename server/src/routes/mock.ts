@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import type { Request, Response } from 'express';
+import type { NextFunction, Request, Response } from 'express';
 import { matchAll } from '../services/matcher';
 import { buildResponse, sleep } from '../services/responder';
 import { matchesConditions } from '../services/conditions';
@@ -134,7 +134,20 @@ async function proxyToTarget(req: Request, res: Response, target: string): Promi
   }
 }
 
-mockRouter.all('*', async (req: Request, res: Response) => {
+/**
+ * True for plain browser navigations, i.e. requests that expect an HTML page
+ * rather than an API payload. Only relevant when the mock prefix is empty and
+ * mocks therefore share their origin with the console.
+ */
+function isBrowserNavigation(req: Request): boolean {
+  if (req.method !== 'GET' && req.method !== 'HEAD') return false;
+  const accept = req.headers.accept ?? '';
+  return accept.includes('text/html') && !accept.includes('application/json');
+}
+
+// Express 5 (path-to-regexp 8) rejects the legacy `'*'` route, so the catch-all
+// is registered as plain middleware instead.
+mockRouter.use(async (req: Request, res: Response, next: NextFunction) => {
   const pathname = req.path;
   const startedAt = Date.now();
   const candidates = matchAll(req.method, pathname);
@@ -148,6 +161,13 @@ mockRouter.all('*', async (req: Request, res: Response) => {
     ) ?? candidates.find((item) => (item.rule.conditions?.length ?? 0) === 0);
 
   if (!match) {
+    // With an empty prefix the console lives on the same origin as the mocks, so
+    // browser navigations fall through to it instead of getting the mock 404.
+    if (!MOCK_PREFIX && isBrowserNavigation(req)) {
+      next();
+      return;
+    }
+
     const proxyTarget = getSetting('proxyTarget').trim();
     if (proxyTarget) {
       logger.info(`Proxying ${req.method} ${pathname} -> ${proxyTarget}`);

@@ -36,8 +36,8 @@ export function isLoopbackHost(): boolean {
   return HOST === '127.0.0.1' || HOST === 'localhost' || HOST === '::1';
 }
 
-/** Mock entry prefix, e.g. `/mock`. Set to empty string to serve mocks from root. */
-export const MOCK_PREFIX = (process.env.MOCK_PREFIX ?? '/mock').replace(/\/+$/, '');
+/** Mock entry prefix, e.g. `/mock`. Defaults to empty so mocks are served from root. */
+export const MOCK_PREFIX = (process.env.MOCK_PREFIX ?? '').replace(/\/+$/, '');
 
 export const ADMIN_PREFIX = '/__api';
 

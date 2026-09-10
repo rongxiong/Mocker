@@ -20,13 +20,13 @@ npm run build && npm start
 
 环境变量：
 
-| 变量          | 默认值      | 说明                                                      |
-| ------------- | ----------- | --------------------------------------------------------- |
-| `PORT`        | `3001`      | HTTP 端口                                                 |
-| `HOST`        | `127.0.0.1` | 监听地址，默认**仅本机**；设为 `0.0.0.0` 才会暴露到局域网 |
-| `MOCK_PREFIX` | `/mock`     | Mock 入口前缀，置空则 mock 直接从根路径提供               |
-| `DATA_DIR`    | `./data`    | 数据库与上传文件目录                                      |
-| `LOG_LEVEL`   | `info`      | 日志级别：`info` / `warn` / `error` / `silent`            |
+| 变量          | 默认值       | 说明                                                      |
+| ------------- | ------------ | --------------------------------------------------------- |
+| `PORT`        | `3001`       | HTTP 端口                                                 |
+| `HOST`        | `127.0.0.1`  | 监听地址，默认**仅本机**；设为 `0.0.0.0` 才会暴露到局域网 |
+| `MOCK_PREFIX` | 空（根路径） | Mock 入口前缀，例如设为 `/mock` 则 mock 挂在 `/mock` 下   |
+| `DATA_DIR`    | `./data`     | 数据库与上传文件目录                                      |
+| `LOG_LEVEL`   | `info`       | 日志级别：`info` / `warn` / `error` / `silent`            |
 
 > 安全提示：管理 API 可以写入并执行任意 JavaScript，因此默认只监听 `127.0.0.1`。
 > 需要团队共享时请显式设置 `HOST=0.0.0.0`，并确保只在可信网络中使用（启动时会打印警告）。
@@ -204,7 +204,7 @@ http POST http://localhost:3001/__api/rules \
   'content-type: application/json' \
   --raw '{"name":"ping","method":"GET","path":"/ping","responseType":"json","body":"{\"pong\":true}","delayMs":500}'
 
-http GET http://localhost:3001/mock/ping
+http GET http://localhost:3001/ping
 ```
 
 > 省略方法时 HTTPie 会根据有无请求体推断（非交互 shell 下容易误判为 POST），所以这里显式写 `GET`。
@@ -216,7 +216,7 @@ http GET http://localhost:3001/mock/ping
 ```
 server/src
 ├── index.ts              进程入口
-├── app.ts                Express 组装（/mock、/__api、静态托管）
+├── app.ts                Express 组装（mock 入口、/__api、静态托管）
 ├── config.ts             环境变量与路径
 ├── db/                   SQLite 适配器、建表、规则/文件仓储
 ├── routes/               mock 入口、管理 API、文件 API

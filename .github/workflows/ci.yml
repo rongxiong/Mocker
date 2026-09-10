@@ -96,7 +96,7 @@ jobs:
             sleep 1
           done
           curl -fsS http://127.0.0.1:3001/__api/info
-          curl -fsS http://127.0.0.1:3001/mock/api/users/1
+          curl -fsS http://127.0.0.1:3001/api/users/1
           kill "$server_pid"
 
       - name: Server log
