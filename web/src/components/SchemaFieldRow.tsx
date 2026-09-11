@@ -242,86 +242,92 @@ export function SchemaFieldRow({
         <span className="absolute left-[6px] top-0 h-full w-px bg-white/[0.09]" aria-hidden />
       ) : null}
       <div className="group rounded-xl border border-white/[0.06] bg-white/[0.02] p-2 transition-colors hover:border-white/[0.12] hover:bg-white/[0.04]">
-        <div className="flex flex-wrap items-center gap-1.5">
-          {expandable ? (
-            <button
-              type="button"
-              onClick={() => setOpen(!open)}
-              className="cursor-pointer rounded p-0.5 text-muted-300 transition-colors hover:bg-white/10 hover:text-muted-100"
-            >
-              {open ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
-            </button>
-          ) : (
-            <span className="w-[18px]" />
-          )}
-
-          {isItem ? (
-            <span className="rounded-md border border-accent-400/30 bg-accent-400/10 px-1.5 py-[1px] font-mono text-[10.5px] text-accent-300">
-              item
-            </span>
-          ) : (
-            <Input
-              value={field.name}
-              placeholder="字段名"
-              className="w-[130px] font-mono"
-              onChange={(event) => patch({ name: event.target.value })}
-            />
-          )}
-
-          <Select
-            value={field.type}
-            onChange={(event) => changeType(event.target.value as SchemaFieldType)}
-            className="w-[104px] font-mono"
-          >
-            {FIELD_TYPES.map((item) => (
-              <option key={item.value} value={item.value}>
-                {item.label}
-              </option>
-            ))}
-          </Select>
-
-          {!isItem ? (
-            <span className="flex items-center gap-1 text-[11px] text-muted-300">
+        <div className="flex items-center gap-1.5">
+          <div className="flex flex-shrink-0 items-center gap-1.5">
+            {expandable ? (
               <button
                 type="button"
-                onClick={() => patch({ optional: !field.optional })}
-                className={cn(
-                  'cursor-pointer rounded-md border px-1.5 py-[1px] transition-colors',
-                  field.optional
-                    ? 'border-warn/40 bg-warn/15 text-warn'
-                    : 'border-white/[0.08] text-muted-300 hover:text-muted-100',
-                )}
-                title="可选字段按概率出现"
+                onClick={() => setOpen(!open)}
+                className="cursor-pointer rounded p-0.5 text-muted-300 transition-colors hover:bg-white/10 hover:text-muted-100"
               >
-                可选
+                {open ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
               </button>
-              {field.optional ? (
-                <Input
-                  type="number"
-                  step={0.1}
-                  min={0}
-                  max={1}
-                  value={field.optionalRatio ?? 0.5}
-                  className="h-7 w-[62px] font-mono"
-                  title="出现概率 0~1"
-                  onChange={(event) => patch({ optionalRatio: Number(event.target.value) })}
-                />
-              ) : null}
-            </span>
-          ) : null}
+            ) : (
+              <span className="w-[18px]" />
+            )}
+          </div>
 
-          {renderParams()}
+          <div className="flex flex-1 flex-wrap items-center gap-1.5">
+            {isItem ? (
+              <span className="rounded-md border border-accent-400/30 bg-accent-400/10 px-1.5 py-[1px] font-mono text-[10.5px] text-accent-300">
+                item
+              </span>
+            ) : (
+              <Input
+                value={field.name}
+                placeholder="字段名"
+                className="w-[130px] font-mono"
+                onChange={(event) => patch({ name: event.target.value })}
+              />
+            )}
+
+            <Select
+              value={field.type}
+              onChange={(event) => changeType(event.target.value as SchemaFieldType)}
+              className="w-[104px] font-mono"
+            >
+              {FIELD_TYPES.map((item) => (
+                <option key={item.value} value={item.value}>
+                  {item.label}
+                </option>
+              ))}
+            </Select>
+
+            {!isItem ? (
+              <span className="flex items-center gap-1 text-[11px] text-muted-300">
+                <button
+                  type="button"
+                  onClick={() => patch({ optional: !field.optional })}
+                  className={cn(
+                    'cursor-pointer rounded-md border px-1.5 py-[1px] transition-colors',
+                    field.optional
+                      ? 'border-warn/40 bg-warn/15 text-warn'
+                      : 'border-white/[0.08] text-muted-300 hover:text-muted-100',
+                  )}
+                  title="可选字段按概率出现"
+                >
+                  可选
+                </button>
+                {field.optional ? (
+                  <Input
+                    type="number"
+                    step={0.1}
+                    min={0}
+                    max={1}
+                    value={field.optionalRatio ?? 0.5}
+                    className="h-7 w-[62px] font-mono"
+                    title="出现概率 0~1"
+                    onChange={(event) => patch({ optionalRatio: Number(event.target.value) })}
+                  />
+                ) : null}
+              </span>
+            ) : null}
+
+            {renderParams()}
+          </div>
 
           {onRemove ? (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="ml-auto opacity-0 transition-opacity group-hover:opacity-100"
-              title="删除字段"
-              onClick={onRemove}
-            >
-              <Trash2 size={13} className="text-muted-300 hover:text-rose-300" />
-            </Button>
+            <div className="flex flex-shrink-0 items-center">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="opacity-0 transition-opacity group-hover:opacity-100"
+                title="删除字段"
+                onClick={onRemove}
+              >
+                <Trash2 size={13} className="text-muted-300 hover:text-rose-300" />
+              </Button>
+            </div>
           ) : null}
         </div>
 
