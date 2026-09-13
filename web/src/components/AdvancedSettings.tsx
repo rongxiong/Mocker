@@ -47,7 +47,7 @@ export function AdvancedSettings({ rule, onChange }: AdvancedSettingsProps) {
     <div className="glass mt-4 rounded-2xl p-4">
       <p className="panel-title mb-3">高级</p>
 
-      <div className="rounded-xl border border-white/[0.07] bg-white/[0.02]">
+      <div className="rounded-xl border border-line bg-fill">
         <button
           type="button"
           onClick={() => setOpenConditions(!openConditions)}
@@ -65,7 +65,7 @@ export function AdvancedSettings({ rule, onChange }: AdvancedSettingsProps) {
         </button>
 
         {openConditions ? (
-          <div className="space-y-1.5 border-t border-white/[0.06] p-3">
+          <div className="space-y-1.5 border-t border-line p-3">
             {conditions.length === 0 ? (
               <p className="text-[11.5px] text-muted-300">
                 无条件是默认命中。添加条件后，可让同一路径按 query / header / body 返回不同内容。
@@ -134,7 +134,7 @@ export function AdvancedSettings({ rule, onChange }: AdvancedSettingsProps) {
         ) : null}
       </div>
 
-      <div className="mt-2 rounded-xl border border-white/[0.07] bg-white/[0.02]">
+      <div className="mt-2 rounded-xl border border-line bg-fill">
         <button
           type="button"
           onClick={() => setOpenVariants(!openVariants)}
@@ -154,14 +154,14 @@ export function AdvancedSettings({ rule, onChange }: AdvancedSettingsProps) {
         </button>
 
         {openVariants ? (
-          <div className="space-y-2 border-t border-white/[0.06] p-3">
+          <div className="space-y-2 border-t border-line p-3">
             {variants.length === 0 ? (
               <p className="text-[11.5px] text-muted-300">
                 留空的字段沿用规则本身的配置，只覆盖填写的项。
               </p>
             ) : null}
             {variants.map((variant, index) => (
-              <div key={variant.id} className="rounded-lg border border-white/[0.06] p-2">
+              <div key={variant.id} className="rounded-lg border border-line p-2">
                 <div className="flex items-center gap-1.5">
                   <span className="w-[34px] shrink-0 font-mono text-[11px] text-accent-300">
                     #{index + 1}

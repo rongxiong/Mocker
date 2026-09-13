@@ -12,7 +12,7 @@ export function Tabs<T extends string>({ value, onChange, items, className }: Ta
   return (
     <div
       className={cn(
-        'inline-flex items-center gap-1 rounded-xl border border-white/[0.07] bg-ink-900/60 p-1',
+        'inline-flex items-center gap-1 rounded-xl border border-line bg-ink-900/60 p-1',
         className,
       )}
     >
@@ -27,8 +27,8 @@ export function Tabs<T extends string>({ value, onChange, items, className }: Ta
             className={cn(
               'relative rounded-lg px-3 py-1.5 text-[12px] font-medium transition-all duration-200',
               active
-                ? 'bg-brand-500/20 text-white shadow-[inset_0_0_0_1px_rgba(124,92,255,.45)]'
-                : 'text-muted-200 hover:bg-white/[0.06] hover:text-muted-100',
+                ? 'bg-brand-500/20 text-fg shadow-[inset_0_0_0_1px_rgba(124,92,255,.45)]'
+                : 'text-muted-200 hover:bg-fill hover:text-muted-100',
             )}
           >
             {item.label}

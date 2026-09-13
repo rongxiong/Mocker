@@ -7,36 +7,21 @@
   --font-sans: 'Noto Sans', system-ui, -apple-system, sans-serif;
   --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
 
+  /* Literal colours: they mean the same thing in every theme. `paper` is real
+     white (switch knob), `on-brand` is the text colour on the brand gradient. */
+  --color-paper: #ffffff;
+  --color-on-brand: #0b0d12;
+
   --color-brand-50: #f2efff;
   --color-brand-100: #e4deff;
-  --color-brand-200: #c9beff;
-  --color-brand-300: #a78bfa;
   --color-brand-400: #8b6dff;
-  --color-brand-500: #7c5cff;
   --color-brand-600: #6344e8;
   --color-brand-700: #4c34b8;
 
-  --color-accent-300: #67e8f9;
   --color-accent-400: #22d3ee;
   --color-accent-500: #06b6d4;
 
-  --color-ink-900: #0b0d12;
-  --color-ink-800: #11141c;
-  --color-ink-700: #171b26;
-  --color-ink-600: #1e2331;
-  --color-ink-500: #272d3d;
-
-  --color-muted-100: #e6e9f2;
-  --color-muted-200: #9aa3b2;
-  --color-muted-300: #6b7385;
-
-  --color-ok: #34d399;
-  --color-warn: #fbbf24;
-  --color-danger: #f87171;
-  --color-info: #38bdf8;
-
   --shadow-glow: 0 0 0 1px rgba(124, 92, 255, 0.35), 0 12px 40px -12px rgba(124, 92, 255, 0.55);
-  --shadow-panel: 0 18px 50px -24px rgba(0, 0, 0, 0.85);
 
   --background-image-brand-gradient: linear-gradient(120deg, #7c5cff 0%, #a78bfa 45%, #22d3ee 100%);
   --background-image-panel-sheen: linear-gradient(
@@ -99,12 +84,158 @@
   }
 }
 
+/* Theme aware tokens. `inline` makes every utility read the runtime variable
+   (`--ink-900`, `--line`, …) instead of freezing the literal written here, so
+   toggling `.dark` on <html> repaints the whole UI. See `@layer base` below. */
+@theme inline {
+  --color-ink-900: var(--ink-900);
+  --color-ink-800: var(--ink-800);
+  --color-ink-700: var(--ink-700);
+  --color-ink-600: var(--ink-600);
+  --color-ink-500: var(--ink-500);
+
+  --color-muted-100: var(--muted-100);
+  --color-muted-200: var(--muted-200);
+  --color-muted-300: var(--muted-300);
+
+  --color-surface: var(--surface);
+  --color-fill: var(--fill);
+  --color-fill-strong: var(--fill-strong);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-fg: var(--fg);
+
+  --color-brand-200: var(--brand-200);
+  --color-brand-300: var(--brand-300);
+  --color-brand-500: var(--brand-500);
+  --color-accent-300: var(--accent-300);
+
+  --color-ok: var(--tone-ok);
+  --color-warn: var(--tone-warn);
+  --color-danger: var(--tone-danger);
+  --color-info: var(--tone-info);
+
+  --shadow-panel: var(--shadow-panel-color);
+}
+
 @layer base {
+  /* ---- light (default) ---------------------------------------------------- */
   :root {
+    color-scheme: light;
+
+    --ink-900: #e9edf4; /* page */
+    --ink-800: #ffffff; /* dialogs, solid panels */
+    --ink-700: #f7f9fc;
+    --ink-600: #e9edf5;
+    --ink-500: #dbe1ec;
+
+    --muted-100: #0d1220; /* primary text */
+    --muted-200: #4b5466; /* secondary text */
+    --muted-300: #6b7488; /* faint text / labels */
+
+    --surface: rgb(255 255 255 / 0.8);
+    --fill: rgb(13 18 32 / 0.045);
+    --fill-strong: rgb(13 18 32 / 0.09);
+    --line: rgb(13 18 32 / 0.12);
+    --line-strong: rgb(13 18 32 / 0.22);
+    --fg: #0b0f18;
+
+    --brand-200: #5b21b6;
+    --brand-300: #7c3aed;
+    --brand-500: #7c5cff;
+    --accent-300: #0e7490;
+
+    --tone-ok: #047857;
+    --tone-warn: #b45309;
+    --tone-danger: #be123c;
+    --tone-info: #0369a1;
+
+    --ring-inset: rgb(13 18 32 / 0.1);
+    --shadow-panel-color: 0 14px 34px -24px rgb(13 18 32 / 0.45);
+    --scrollbar-thumb: #c3cad8;
+    --scrollbar-thumb-hover: #a7b1c3;
+    --page-glow:
+      radial-gradient(1100px 620px at 12% -8%, rgb(124 92 255 / 0.1), transparent 60%),
+      radial-gradient(900px 520px at 92% 4%, rgb(34 211 238 / 0.1), transparent 62%),
+      radial-gradient(700px 700px at 60% 110%, rgb(167 139 250 / 0.08), transparent 60%);
+
+    /* Tailwind's 200–400 steps are tints designed for dark surfaces. On a light
+       surface they are unreadable, so they are remapped to the 600–800 steps:
+       `bg-emerald-400/15` stays a pale chip, `text-emerald-300` stays legible. */
+    --color-emerald-300: #047857;
+    --color-emerald-400: #059669;
+    --color-sky-300: #0369a1;
+    --color-sky-400: #0284c7;
+    --color-teal-300: #0f766e;
+    --color-teal-400: #0d9488;
+    --color-amber-200: #92400e;
+    --color-amber-300: #b45309;
+    --color-amber-400: #d97706;
+    --color-violet-300: #6d28d9;
+    --color-violet-400: #7c3aed;
+    --color-rose-200: #9f1239;
+    --color-rose-300: #be123c;
+    --color-rose-400: #e11d48;
+    --color-slate-300: #475569;
+    --color-slate-400: #64748b;
+  }
+
+  /* ---- dark --------------------------------------------------------------- */
+  .dark {
     color-scheme: dark;
-    --brand: #7c5cff;
-    --brand-soft: #a78bfa;
-    --accent: #22d3ee;
+
+    --ink-900: #0b0d12;
+    --ink-800: #11141c;
+    --ink-700: #171b26;
+    --ink-600: #1e2331;
+    --ink-500: #272d3d;
+
+    --muted-100: #e6e9f2;
+    --muted-200: #9aa3b2;
+    --muted-300: #6b7385;
+
+    --surface: rgb(255 255 255 / 0.035);
+    --fill: rgb(255 255 255 / 0.06);
+    --fill-strong: rgb(255 255 255 / 0.11);
+    --line: rgb(255 255 255 / 0.07);
+    --line-strong: rgb(255 255 255 / 0.14);
+    --fg: #ffffff;
+
+    --brand-200: #c9beff;
+    --brand-300: #a78bfa;
+    --brand-500: #7c5cff;
+    --accent-300: #67e8f9;
+
+    --tone-ok: #34d399;
+    --tone-warn: #fbbf24;
+    --tone-danger: #f87171;
+    --tone-info: #38bdf8;
+
+    --ring-inset: rgb(255 255 255 / 0.08);
+    --shadow-panel-color: 0 18px 50px -24px rgb(0 0 0 / 0.85);
+    --scrollbar-thumb: #2c3346;
+    --scrollbar-thumb-hover: #3c4560;
+    --page-glow:
+      radial-gradient(1100px 620px at 12% -8%, rgb(124 92 255 / 0.18), transparent 60%),
+      radial-gradient(900px 520px at 92% 4%, rgb(34 211 238 / 0.12), transparent 62%),
+      radial-gradient(700px 700px at 60% 110%, rgb(167 139 250 / 0.1), transparent 60%);
+
+    --color-emerald-300: #6ee7b7;
+    --color-emerald-400: #34d399;
+    --color-sky-300: #7dd3fc;
+    --color-sky-400: #38bdf8;
+    --color-teal-300: #5eead4;
+    --color-teal-400: #2dd4bf;
+    --color-amber-200: #fde68a;
+    --color-amber-300: #fcd34d;
+    --color-amber-400: #fbbf24;
+    --color-violet-300: #c4b5fd;
+    --color-violet-400: #a78bfa;
+    --color-rose-200: #fecdd3;
+    --color-rose-300: #fda4af;
+    --color-rose-400: #fb7185;
+    --color-slate-300: #cbd5e1;
+    --color-slate-400: #94a3b8;
   }
 
   html,
@@ -115,16 +246,13 @@
 
   body {
     @apply bg-ink-900 font-sans text-[13px] text-muted-100 antialiased;
-    background-image:
-      radial-gradient(1100px 620px at 12% -8%, rgba(124, 92, 255, 0.18), transparent 60%),
-      radial-gradient(900px 520px at 92% 4%, rgba(34, 211, 238, 0.12), transparent 62%),
-      radial-gradient(700px 700px at 60% 110%, rgba(167, 139, 250, 0.1), transparent 60%);
+    background-image: var(--page-glow);
     background-attachment: fixed;
   }
 
   * {
     scrollbar-width: thin;
-    scrollbar-color: #2c3346 transparent;
+    scrollbar-color: var(--scrollbar-thumb) transparent;
   }
 
   ::-webkit-scrollbar {
@@ -137,14 +265,14 @@
   }
 
   ::-webkit-scrollbar-thumb {
-    background: #2c3346;
+    background: var(--scrollbar-thumb);
     border-radius: 999px;
     border: 2px solid transparent;
     background-clip: content-box;
   }
 
   ::-webkit-scrollbar-thumb:hover {
-    background: #3c4560;
+    background: var(--scrollbar-thumb-hover);
     background-clip: content-box;
   }
 
@@ -158,11 +286,11 @@
 
 @layer components {
   .glass {
-    @apply border border-white/[0.07] bg-white/[0.035] shadow-panel backdrop-blur-xl;
+    @apply border border-line bg-surface shadow-panel backdrop-blur-xl;
   }
 
   .glass-strong {
-    @apply border border-white/10 bg-ink-800/80 shadow-panel backdrop-blur-2xl;
+    @apply border border-line-strong bg-ink-800/80 shadow-panel backdrop-blur-2xl;
   }
 
   .panel-title {
@@ -174,7 +302,7 @@
   }
 
   .hairline {
-    @apply border-white/[0.07];
+    @apply border-line;
   }
 
   .gradient-text {
@@ -182,7 +310,7 @@
   }
 
   .skeleton {
-    @apply relative overflow-hidden bg-white/5;
+    @apply relative overflow-hidden bg-fill;
   }
 
   .skeleton::after {
@@ -205,9 +333,13 @@
   /* A data URI cannot live in an arbitrary value (`bg-[url(...)]`): class
      candidates are split on commas, so the URI gets truncated at `svg+xml,`. */
   .select-chevron {
-    background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239AA3B2' stroke-width='3'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+    background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236B7488' stroke-width='3'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
     background-size: 11px;
     background-position: right 0.55rem center;
     background-repeat: no-repeat;
+  }
+
+  .dark .select-chevron {
+    background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239AA3B2' stroke-width='3'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
   }
 }

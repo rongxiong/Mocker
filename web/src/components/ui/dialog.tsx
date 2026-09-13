@@ -52,7 +52,7 @@ export function Dialog({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-md p-1 text-muted-300 transition-colors hover:bg-white/10 hover:text-muted-100"
+            className="rounded-md p-1 text-muted-300 transition-colors hover:bg-fill-strong hover:text-muted-100"
           >
             <X size={15} />
           </button>

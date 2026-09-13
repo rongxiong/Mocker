@@ -6,7 +6,7 @@ export function Badge({ className, ...props }: HTMLAttributes<HTMLSpanElement>) 
     <span
       className={cn(
         'inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10.5px] font-semibold uppercase tracking-wide',
-        'border-white/10 bg-white/[0.06] text-muted-200',
+        'border-line-strong bg-fill text-muted-200',
         className,
       )}
       {...props}
@@ -28,7 +28,7 @@ export function MethodBadge({ method, className }: { method: string; className?:
     <span
       className={cn(
         'inline-flex w-[54px] shrink-0 justify-center rounded-md border px-1 py-[1px] font-mono text-[10px] font-bold tracking-wider',
-        tones[method] ?? 'border-white/10 bg-white/10 text-muted-200',
+        tones[method] ?? 'border-line-strong bg-fill-strong text-muted-200',
         className,
       )}
     >

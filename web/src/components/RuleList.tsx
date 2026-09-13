@@ -102,7 +102,7 @@ export function RuleList({
             'group relative w-full cursor-pointer rounded-xl border p-2.5 transition-all duration-200',
             active
               ? 'border-brand-500/50 bg-brand-500/[0.12] shadow-[0_10px_30px_-18px_rgba(124,92,255,.9)]'
-              : 'border-transparent bg-white/[0.02] hover:-translate-y-[1px] hover:border-white/10 hover:bg-white/[0.05]',
+              : 'border-transparent bg-fill/40 hover:-translate-y-[1px] hover:border-line-strong hover:bg-fill',
             !rule.enabled && 'opacity-55',
           )}
         >
@@ -128,7 +128,7 @@ export function RuleList({
 
           <div className="mt-2 flex items-center justify-between">
             <div className="flex items-center gap-1.5 text-[10.5px] text-muted-300">
-              <span className="rounded border border-white/[0.07] px-1 py-[1px]">
+              <span className="rounded border border-line px-1 py-[1px]">
                 {TYPE_LABEL.get(rule.responseType) ?? rule.responseType}
               </span>
               {rule.delayMs > 0 || rule.delayJitterMs > 0 ? (
@@ -152,7 +152,7 @@ export function RuleList({
                     event.stopPropagation();
                     onDuplicate(rule);
                   }}
-                  className="cursor-pointer rounded p-1 text-muted-300 hover:bg-white/10 hover:text-muted-100"
+                  className="cursor-pointer rounded p-1 text-muted-300 hover:bg-fill-strong hover:text-muted-100"
                 >
                   <Copy size={12} />
                 </button>
@@ -181,8 +181,8 @@ export function RuleList({
   };
 
   return (
-    <aside className="flex h-full w-[290px] shrink-0 flex-col border-r border-white/[0.07] bg-ink-800/40">
-      <div className="space-y-2.5 border-b border-white/[0.07] p-3">
+    <aside className="flex h-full w-[290px] shrink-0 flex-col border-r border-line bg-ink-800/40">
+      <div className="space-y-2.5 border-b border-line p-3">
         <div className="flex items-center justify-between">
           <span className="panel-title">接口规则</span>
           <Button variant="ghost" size="icon" title="新建接口" onClick={onCreate}>
@@ -207,8 +207,8 @@ export function RuleList({
               className={cn(
                 'cursor-pointer rounded-md border px-1.5 py-[2px] font-mono text-[10px] font-semibold transition-all',
                 method === item
-                  ? 'border-brand-500/50 bg-brand-500/20 text-white'
-                  : 'border-white/[0.07] bg-white/[0.03] text-muted-300 hover:text-muted-100',
+                  ? 'border-brand-500/50 bg-brand-500/20 text-fg'
+                  : 'border-line bg-fill text-muted-300 hover:text-muted-100',
               )}
             >
               {item === 'ALL' ? '全部' : item}
@@ -245,8 +245,8 @@ export function RuleList({
             className={cn(
               'flex h-7 cursor-pointer items-center justify-center rounded-lg border px-2 transition-colors',
               grouped
-                ? 'border-brand-500/50 bg-brand-500/20 text-white'
-                : 'border-white/[0.08] text-muted-300 hover:text-muted-100',
+                ? 'border-brand-500/50 bg-brand-500/20 text-fg'
+                : 'border-line text-muted-300 hover:text-muted-100',
             )}
           >
             <FolderTree size={12} />
@@ -278,7 +278,7 @@ export function RuleList({
                     <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-300">
                       {section.label}
                     </span>
-                    <span className="rounded bg-white/[0.06] px-1 text-[10px] text-muted-300">
+                    <span className="rounded bg-fill px-1 text-[10px] text-muted-300">
                       {section.items.length}
                     </span>
                   </button>
@@ -292,7 +292,7 @@ export function RuleList({
         )}
       </div>
 
-      <div className="flex items-center justify-between border-t border-white/[0.07] px-3 py-2 text-[11px] text-muted-300">
+      <div className="flex items-center justify-between border-t border-line px-3 py-2 text-[11px] text-muted-300">
         <span>共 {filtered.length} 条</span>
         {conflicts.length > 0 ? (
           <span className="flex items-center gap-1 text-amber-300">

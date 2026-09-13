@@ -134,7 +134,7 @@ export function SchemaEditor({
         </div>
       </div>
 
-      <div className="space-y-1.5 rounded-xl border border-white/[0.07] bg-ink-900/40 p-2">
+      <div className="space-y-1.5 rounded-xl border border-line bg-ink-900/40 p-2">
         {fields.length === 0 ? (
           <p className="py-6 text-center text-[12px] text-muted-300">
             还没有字段，可点击「添加字段」或「导入 JSON 示例」自动生成

@@ -185,7 +185,7 @@ export function ResponsePreview({ rule, baseUrl, refreshToken = 0 }: ResponsePre
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex items-center justify-between border-b border-white/[0.07] px-3 py-2">
+      <div className="flex items-center justify-between border-b border-line px-3 py-2">
         <span className="panel-title">响应预览</span>
         <div className="flex items-center gap-1.5">
           {loading ? (
@@ -205,7 +205,7 @@ export function ResponsePreview({ rule, baseUrl, refreshToken = 0 }: ResponsePre
       </div>
 
       <div className="flex-1 overflow-y-auto p-3">
-        <div className="mb-3 rounded-xl border border-white/[0.07] bg-white/[0.02]">
+        <div className="mb-3 rounded-xl border border-line bg-fill">
           <button
             type="button"
             onClick={() => setOpenRequest(!openRequest)}
@@ -219,7 +219,7 @@ export function ResponsePreview({ rule, baseUrl, refreshToken = 0 }: ResponsePre
           </button>
 
           {openRequest ? (
-            <div className="space-y-2.5 border-t border-white/[0.06] px-2.5 py-2.5">
+            <div className="space-y-2.5 border-t border-line px-2.5 py-2.5">
               {variants.length > 0 ? (
                 <div className="flex items-center gap-1.5">
                   <span className="text-[10.5px] uppercase tracking-[0.14em] text-muted-300">
@@ -232,8 +232,8 @@ export function ResponsePreview({ rule, baseUrl, refreshToken = 0 }: ResponsePre
                       className={cn(
                         'cursor-pointer rounded-md border px-1.5 py-[2px] text-[10.5px] transition-colors',
                         variantIndex === -1
-                          ? 'border-brand-500/50 bg-brand-500/20 text-white'
-                          : 'border-white/[0.08] text-muted-300 hover:text-muted-100',
+                          ? 'border-brand-500/50 bg-brand-500/20 text-fg'
+                          : 'border-line text-muted-300 hover:text-muted-100',
                       )}
                     >
                       基准
@@ -247,8 +247,8 @@ export function ResponsePreview({ rule, baseUrl, refreshToken = 0 }: ResponsePre
                         className={cn(
                           'cursor-pointer rounded-md border px-1.5 py-[2px] text-[10.5px] transition-colors',
                           variantIndex === index
-                            ? 'border-accent-400/50 bg-accent-400/20 text-white'
-                            : 'border-white/[0.08] text-muted-300 hover:text-muted-100',
+                            ? 'border-accent-400/50 bg-accent-400/20 text-fg'
+                            : 'border-line text-muted-300 hover:text-muted-100',
                         )}
                       >
                         #{index + 1}
@@ -402,11 +402,11 @@ export function ResponsePreview({ rule, baseUrl, refreshToken = 0 }: ResponsePre
               <p className="mb-1 text-[10.5px] uppercase tracking-[0.14em] text-muted-300">
                 Headers
               </p>
-              <div className="overflow-hidden rounded-lg border border-white/[0.07]">
+              <div className="overflow-hidden rounded-lg border border-line">
                 {Object.entries(preview.headers).map(([key, value]) => (
                   <div
                     key={key}
-                    className="grid grid-cols-[130px_1fr] gap-2 border-b border-white/[0.05] px-2 py-1 font-mono text-[11px] last:border-b-0"
+                    className="grid grid-cols-[130px_1fr] gap-2 border-b border-line px-2 py-1 font-mono text-[11px] last:border-b-0"
                   >
                     <span className="truncate text-brand-200">{key}</span>
                     <span className="break-all text-muted-200">{value}</span>
@@ -418,7 +418,7 @@ export function ResponsePreview({ rule, baseUrl, refreshToken = 0 }: ResponsePre
             <div>
               <p className="mb-1 text-[10.5px] uppercase tracking-[0.14em] text-muted-300">Body</p>
               {preview.isBinary && !preview.body.startsWith('{') ? (
-                <div className="rounded-xl border border-white/[0.07] bg-ink-900/60 p-3 text-[12px] text-muted-200">
+                <div className="rounded-xl border border-line bg-ink-900/60 p-3 text-[12px] text-muted-200">
                   二进制响应（{preview.body}），请在文件库中确认文件内容。
                 </div>
               ) : (

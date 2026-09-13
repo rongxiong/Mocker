@@ -239,16 +239,16 @@ export function SchemaFieldRow({
   return (
     <div className={cn(depth > 0 && 'relative pl-5')}>
       {depth > 0 ? (
-        <span className="absolute left-[6px] top-0 h-full w-px bg-white/[0.09]" aria-hidden />
+        <span className="absolute left-[6px] top-0 h-full w-px bg-fill-strong" aria-hidden />
       ) : null}
-      <div className="group rounded-xl border border-white/[0.06] bg-white/[0.02] p-2 transition-colors hover:border-white/[0.12] hover:bg-white/[0.04]">
+      <div className="group rounded-xl border border-line bg-fill/40 p-2 transition-colors hover:border-line-strong hover:bg-fill">
         <div className="flex items-center gap-1.5">
           <div className="flex flex-shrink-0 items-center gap-1.5">
             {expandable ? (
               <button
                 type="button"
                 onClick={() => setOpen(!open)}
-                className="cursor-pointer rounded p-0.5 text-muted-300 transition-colors hover:bg-white/10 hover:text-muted-100"
+                className="cursor-pointer rounded p-0.5 text-muted-300 transition-colors hover:bg-fill-strong hover:text-muted-100"
               >
                 {open ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
               </button>
@@ -292,7 +292,7 @@ export function SchemaFieldRow({
                     'cursor-pointer rounded-md border px-1.5 py-[1px] transition-colors',
                     field.optional
                       ? 'border-warn/40 bg-warn/15 text-warn'
-                      : 'border-white/[0.08] text-muted-300 hover:text-muted-100',
+                      : 'border-line text-muted-300 hover:text-muted-100',
                   )}
                   title="可选字段按概率出现"
                 >
@@ -332,7 +332,7 @@ export function SchemaFieldRow({
         </div>
 
         {expandable && open ? (
-          <div className="mt-2 space-y-1.5 border-t border-white/[0.06] pt-2">
+          <div className="mt-2 space-y-1.5 border-t border-line pt-2">
             {field.type === 'object' ? (
               <>
                 {(field.children ?? []).map((child) => (

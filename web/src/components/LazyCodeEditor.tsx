@@ -11,7 +11,7 @@ export function LazyCodeEditor(props: CodeEditorProps) {
     <Suspense
       fallback={
         <div
-          className="skeleton rounded-xl border border-white/[0.08]"
+          className="skeleton rounded-xl border border-line"
           style={{ height: props.height ?? '360px' }}
         />
       }

@@ -98,7 +98,7 @@ export function FilesPage() {
           }}
           className={cn(
             'glass flex flex-col items-center justify-center gap-2 rounded-2xl border-dashed py-10 transition-all duration-200',
-            dragging ? 'border-brand-500/70 bg-brand-500/10' : 'border-white/[0.12]',
+            dragging ? 'border-brand-500/70 bg-brand-500/10' : 'border-line-strong',
           )}
         >
           <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-brand-gradient/20">
@@ -129,7 +129,7 @@ export function FilesPage() {
         </div>
 
         <div className="glass overflow-hidden rounded-2xl">
-          <div className="flex items-center justify-between border-b border-white/[0.07] px-4 py-2.5">
+          <div className="flex items-center justify-between border-b border-line px-4 py-2.5">
             <span className="panel-title">文件库 · {files.length}</span>
             <span className="text-[11.5px] text-muted-300">
               在规则的 File 响应类型中选择这里的文件
@@ -142,7 +142,7 @@ export function FilesPage() {
           ) : (
             <table className="w-full text-left text-[12.5px]">
               <thead>
-                <tr className="border-b border-white/[0.07] text-[11px] uppercase tracking-wider text-muted-300">
+                <tr className="border-b border-line text-[11px] uppercase tracking-wider text-muted-300">
                   <th className="px-4 py-2 font-medium">文件名</th>
                   <th className="px-4 py-2 font-medium">类型</th>
                   <th className="px-4 py-2 font-medium">大小</th>
@@ -156,7 +156,7 @@ export function FilesPage() {
                   return (
                     <tr
                       key={file.id}
-                      className="border-b border-white/[0.04] transition-colors last:border-b-0 hover:bg-white/[0.03]"
+                      className="border-b border-line transition-colors last:border-b-0 hover:bg-fill"
                     >
                       <td className="px-4 py-2.5">
                         <div className="flex items-center gap-2">

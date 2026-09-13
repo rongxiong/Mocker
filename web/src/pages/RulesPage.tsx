@@ -113,14 +113,14 @@ export function RulesPage({
             }}
             onDelete={() => onDelete(draft)}
           />
-          <div className="hidden w-[400px] shrink-0 border-l border-white/[0.07] bg-ink-800/40 xl:block">
+          <div className="hidden w-[400px] shrink-0 border-l border-line bg-ink-800/40 xl:block">
             <ResponsePreview rule={draft} baseUrl={baseUrl} refreshToken={refreshToken} />
           </div>
 
           <button
             type="button"
             onClick={() => setDrawerOpen(true)}
-            className="fixed bottom-5 right-5 z-30 flex cursor-pointer items-center gap-1.5 rounded-full bg-brand-gradient px-4 py-2.5 text-[12.5px] font-medium text-ink-900 shadow-[0_12px_30px_-10px_rgba(124,92,255,.9)] transition-transform hover:scale-105 xl:hidden"
+            className="fixed bottom-5 right-5 z-30 flex cursor-pointer items-center gap-1.5 rounded-full bg-brand-gradient px-4 py-2.5 text-[12.5px] font-medium text-on-brand shadow-[0_12px_30px_-10px_rgba(124,92,255,.9)] transition-transform hover:scale-105 xl:hidden"
           >
             <PanelBottomClose size={14} />
             响应预览
@@ -135,7 +135,7 @@ export function RulesPage({
                 className="absolute inset-0 cursor-default bg-ink-900/70 backdrop-blur-sm animate-fade-in-fast"
               />
               <div className="glass-strong absolute inset-x-0 bottom-0 flex h-[72vh] animate-slide-up flex-col rounded-t-2xl">
-                <div className="flex items-center justify-between border-b border-white/[0.07] px-3 py-2">
+                <div className="flex items-center justify-between border-b border-line px-3 py-2">
                   <span className="panel-title">响应预览</span>
                   <Button variant="ghost" size="icon" onClick={() => setDrawerOpen(false)}>
                     <X size={14} />

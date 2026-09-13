@@ -179,7 +179,7 @@ export function BasicSettings({ rule, groups = [], onChange }: BasicSettingsProp
         </div>
       </div>
 
-      <div className="grid grid-cols-[1fr_200px_160px_auto] items-end gap-3 border-t border-white/[0.07] pt-3">
+      <div className="grid grid-cols-[1fr_200px_160px_auto] items-end gap-3 border-t border-line pt-3">
         <div>
           <Label htmlFor="rule-content-type">Content-Type（留空自动推断）</Label>
           <Input

@@ -109,7 +109,7 @@ export function SettingsPage({
             {rows.map((row) => (
               <div
                 key={row.label}
-                className="grid grid-cols-[110px_1fr] gap-2 border-b border-white/[0.05] pb-1.5 last:border-b-0"
+                className="grid grid-cols-[110px_1fr] gap-2 border-b border-line pb-1.5 last:border-b-0"
               >
                 <dt className="text-[12px] text-muted-300">{row.label}</dt>
                 <dd className="break-all font-mono text-[11.5px] text-muted-100">{row.value}</dd>
@@ -139,7 +139,7 @@ export function SettingsPage({
           <p className="mt-2 text-[11px] text-muted-300">
             导出内容包含规则的完整配置、上传文件的二进制（base64）与运行设置，可在另一台机器上一键还原。
           </p>
-          <div className="mt-3 border-t border-white/[0.07] pt-3">
+          <div className="mt-3 border-t border-line pt-3">
             <p className="panel-title mb-2">OpenAPI / Swagger</p>
             <p className="mb-2 text-[12px] leading-relaxed text-muted-200">
               导入 OpenAPI 3 的 JSON 文档，自动按 path + method 生成规则，并把响应 schema 转成
@@ -177,7 +177,7 @@ export function SettingsPage({
               value={proxyTarget}
               placeholder="https://api.example.com"
               onChange={(event) => setProxyTarget(event.target.value)}
-              className="h-8 w-full rounded-lg border border-white/[0.08] bg-ink-900/70 px-2.5 font-mono text-[12.5px] text-muted-100 placeholder:text-muted-300/70 focus:border-brand-500/60 focus:outline-none focus:ring-1 focus:ring-brand-500/40"
+              className="h-8 w-full rounded-lg border border-line bg-ink-900/70 px-2.5 font-mono text-[12.5px] text-muted-100 placeholder:text-muted-300/70 focus:border-brand-500/60 focus:outline-none focus:ring-1 focus:ring-brand-500/40"
             />
             <Button
               variant="primary"
@@ -242,7 +242,7 @@ export function SettingsPage({
                 </thead>
                 <tbody>
                   {logs.map((log) => (
-                    <tr key={log.id} className="border-t border-white/[0.04] hover:bg-white/[0.03]">
+                    <tr key={log.id} className="border-t border-line hover:bg-fill">
                       <td className="px-2 py-1.5 text-muted-300">{formatTime(log.at)}</td>
                       <td className="px-2 py-1.5">
                         <MethodBadge method={log.method} />
@@ -312,7 +312,7 @@ export function SettingsPage({
               ))}
             </ul>
           ) : null}
-          <div className="max-h-[46vh] overflow-y-auto rounded-lg border border-white/[0.07]">
+          <div className="max-h-[46vh] overflow-y-auto rounded-lg border border-line">
             <table className="w-full text-left font-mono text-[11.5px]">
               <thead className="sticky top-0 bg-ink-800/95">
                 <tr className="text-[10.5px] uppercase tracking-wider text-muted-300">
@@ -324,7 +324,7 @@ export function SettingsPage({
               </thead>
               <tbody>
                 {(openApi?.rules ?? []).map((rule, index) => (
-                  <tr key={index} className="border-t border-white/[0.04]">
+                  <tr key={index} className="border-t border-line">
                     <td className="px-2 py-1.5">
                       <MethodBadge method={rule.method ?? 'GET'} />
                     </td>
@@ -373,7 +373,7 @@ export function SettingsPage({
               <p className="mb-1 text-[10.5px] uppercase tracking-[0.14em] text-muted-300">
                 请求体
               </p>
-              <pre className="max-h-52 overflow-auto rounded-lg border border-white/[0.07] bg-ink-900/70 p-2.5 font-mono text-[11.5px] text-muted-200">
+              <pre className="max-h-52 overflow-auto rounded-lg border border-line bg-ink-900/70 p-2.5 font-mono text-[11.5px] text-muted-200">
                 {prettyJson(activeLog.requestBody || '（空）')}
               </pre>
             </div>
@@ -381,7 +381,7 @@ export function SettingsPage({
               <p className="mb-1 text-[10.5px] uppercase tracking-[0.14em] text-muted-300">
                 响应体
               </p>
-              <pre className="max-h-64 overflow-auto rounded-lg border border-white/[0.07] bg-ink-900/70 p-2.5 font-mono text-[11.5px] text-muted-200">
+              <pre className="max-h-64 overflow-auto rounded-lg border border-line bg-ink-900/70 p-2.5 font-mono text-[11.5px] text-muted-200">
                 {prettyJson(activeLog.responseBody || '（空）')}
               </pre>
             </div>
