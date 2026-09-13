@@ -7,13 +7,13 @@
 ```bash
 npm install
 
-# 开发模式：后端 3001 + 前端 5173（已配置代理）
+# 开发模式：后端 3000 + 前端 5173（已配置代理）
 npm run dev
 # 打开 http://localhost:5173
 
 # 生产模式：单端口运行（前端构建产物由 Express 托管）
 npm run build && npm start
-# 打开 http://localhost:3001
+# 打开 http://localhost:3000
 ```
 
 首次启动会在 `data/` 下创建 SQLite 数据库，并自动写入 3 条示例规则（静态 JSON + 延迟、JavaScript 动态响应、JSON 结构化生成）。
@@ -22,7 +22,7 @@ npm run build && npm start
 
 | 变量          | 默认值       | 说明                                                      |
 | ------------- | ------------ | --------------------------------------------------------- |
-| `PORT`        | `3001`       | HTTP 端口                                                 |
+| `PORT`        | `3000`       | HTTP 端口                                                 |
 | `HOST`        | `127.0.0.1`  | 监听地址，默认**仅本机**；设为 `0.0.0.0` 才会暴露到局域网 |
 | `MOCK_PREFIX` | 空（根路径） | Mock 入口前缀，例如设为 `/mock` 则 mock 挂在 `/mock` 下   |
 | `DATA_DIR`    | `./data`     | 数据库与上传文件目录                                      |
@@ -200,11 +200,11 @@ DELETE /__api/logs                 清空日志
 调用示例（[HTTPie](https://httpie.io/)，安装：`brew install httpie` 或 `pip install httpie`）：
 
 ```bash
-http POST http://localhost:3001/__api/rules \
+http POST http://localhost:3000/__api/rules \
   'content-type: application/json' \
   --raw '{"name":"ping","method":"GET","path":"/ping","responseType":"json","body":"{\"pong\":true}","delayMs":500}'
 
-http GET http://localhost:3001/ping
+http GET http://localhost:3000/ping
 ```
 
 > 省略方法时 HTTPie 会根据有无请求体推断（非交互 shell 下容易误判为 POST），所以这里显式写 `GET`。
@@ -230,7 +230,7 @@ web/src
 ## 开发脚本与质量保障
 
 ```bash
-npm run dev           # 并行启动后端（3001）与前端（5173）
+npm run dev           # 并行启动后端（3000）与前端（5173）
 npm test              # 单元测试 + 集成测试（Vitest）
 npm run test:watch    # 监听模式
 npm run test:coverage # 生成覆盖率报告（终端 + coverage/lcov.info）

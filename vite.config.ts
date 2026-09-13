@@ -19,8 +19,8 @@ export default defineConfig({
     port: 5173,
     allowedHosts: true,
     proxy: {
-      '/__api': 'http://localhost:3001',
-      '/mock': 'http://localhost:3001',
+      '/__api': 'http://localhost:3000',
+      '/mock': 'http://localhost:3000',
     },
   },
   build: {

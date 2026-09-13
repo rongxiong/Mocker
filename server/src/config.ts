@@ -12,7 +12,7 @@ export const DATA_DIR = resolveDataDir();
 export const UPLOAD_DIR = path.join(DATA_DIR, 'uploads');
 export const DB_FILE = path.join(DATA_DIR, 'mocker.db');
 
-const DEFAULT_PORT = 3001;
+const DEFAULT_PORT = 3000;
 
 /** Falls back to the default port when `PORT` is missing or not a valid port number. */
 export const PORT = (() => {
