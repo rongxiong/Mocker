@@ -114,7 +114,7 @@ export function FilesPage() {
               点击上传
             </button>
           </p>
-          <p className="text-[11.5px] text-muted-300">单个文件最大 20 MB</p>
+          <p className="text-[11.5px] text-muted-300">单个文件最大 100 MB</p>
           <input
             ref={inputRef}
             type="file"

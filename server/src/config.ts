@@ -47,7 +47,22 @@ export const WEB_DIST_DIR = path.resolve(process.cwd(), 'dist/web');
 
 export const MAX_DELAY_MS = 60_000;
 export const SCRIPT_TIMEOUT_MS = 2_000;
-export const MAX_UPLOAD_BYTES = 20 * 1024 * 1024;
+
+/** Upload size cap in bytes. Override with `UPLOAD_MAX_MB` (megabytes). */
+export const MAX_UPLOAD_BYTES = (() => {
+  const raw = process.env.UPLOAD_MAX_MB?.trim();
+  const parsed = raw ? Number(raw) : NaN;
+  const mb = Number.isFinite(parsed) && parsed > 0 ? parsed : 100;
+  return Math.floor(mb) * 1024 * 1024;
+})();
+
+/** Request body parser cap in bytes. Override with `BODY_LIMIT_MB` (megabytes). */
+export const BODY_LIMIT_BYTES = (() => {
+  const raw = process.env.BODY_LIMIT_MB?.trim();
+  const parsed = raw ? Number(raw) : NaN;
+  const mb = Number.isFinite(parsed) && parsed > 0 ? parsed : 50;
+  return Math.floor(mb) * 1024 * 1024;
+})();
 
 export function ensureDirs(): void {
   fs.mkdirSync(UPLOAD_DIR, { recursive: true });
