@@ -15,7 +15,12 @@ export function createApp(): Express {
 
   app.use(express.json({ limit: BODY_LIMIT_BYTES }));
   app.use(express.urlencoded({ extended: true, limit: BODY_LIMIT_BYTES }));
-  app.use(express.text({ type: ['text/*', 'application/xml', 'application/*+xml'], limit: BODY_LIMIT_BYTES }));
+  app.use(
+    express.text({
+      type: ['text/*', 'application/xml', 'application/*+xml'],
+      limit: BODY_LIMIT_BYTES,
+    }),
+  );
   // Fallback parser for unknown content types; multipart is left to multer.
   app.use(
     express.raw({
