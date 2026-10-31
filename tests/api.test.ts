@@ -261,6 +261,65 @@ describe('mock router', () => {
     await expect(second.json()).resolves.toEqual({ try: 'second' });
   });
 
+  it('serves the plain response config when the condition switch is off', async () => {
+    await createRule({
+      path: '/api/conditions-off',
+      body: '{"variant":"base"}',
+      conditionsEnabled: false,
+      conditions: [{ id: 'c1', source: 'query', key: 'type', op: 'eq', value: 'vip' }],
+    });
+
+    // The parked condition no longer gates anything, so even the request it was
+    // written for still gets the response config above the advanced panel.
+    const plain = await fetch(`${base}/mock/api/conditions-off`);
+    expect(plain.status).toBe(200);
+    await expect(plain.json()).resolves.toEqual({ variant: 'base' });
+
+    const matching = await fetch(`${base}/mock/api/conditions-off?type=vip`);
+    expect(matching.status).toBe(200);
+    await expect(matching.json()).resolves.toEqual({ variant: 'base' });
+  });
+
+  it('serves the plain response config when the sequence switch is off', async () => {
+    await createRule({
+      path: '/api/variants-off',
+      body: '{"variant":"base"}',
+      variantsEnabled: false,
+      variants: [
+        { id: 'v1', label: 'seq', statusCode: '500', delayMs: '', body: '{"variant":"seq"}' },
+      ],
+    });
+
+    // Conditions stay untouched, so only the sequence is parked.
+    const first = await fetch(`${base}/mock/api/variants-off`);
+    expect(first.status).toBe(200);
+    await expect(first.json()).resolves.toEqual({ variant: 'base' });
+
+    const second = await fetch(`${base}/mock/api/variants-off`);
+    expect(second.status).toBe(200);
+    await expect(second.json()).resolves.toEqual({ variant: 'base' });
+  });
+
+  it('keeps matching on conditions while only the sequence is parked', async () => {
+    await createRule({ path: '/api/mixed', body: '{"variant":"plain"}' });
+    await createRule({
+      path: '/api/mixed',
+      body: '{"variant":"vip"}',
+      variantsEnabled: false,
+      variants: [
+        { id: 'v1', label: 'seq', statusCode: '500', delayMs: '', body: '{"variant":"seq"}' },
+      ],
+      conditions: [{ id: 'c1', source: 'query', key: 'type', op: 'eq', value: 'vip' }],
+    });
+
+    const vip = await fetch(`${base}/mock/api/mixed?type=vip`);
+    expect(vip.status).toBe(200);
+    await expect(vip.json()).resolves.toEqual({ variant: 'vip' });
+
+    const plain = await fetch(`${base}/mock/api/mixed`);
+    await expect(plain.json()).resolves.toEqual({ variant: 'plain' });
+  });
+
   it('ignores disabled rules', async () => {
     await createRule({ path: '/api/off', enabled: false, body: '{}' });
     const response = await fetch(`${base}/mock/api/off`);

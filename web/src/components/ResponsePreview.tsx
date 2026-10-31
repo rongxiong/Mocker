@@ -117,7 +117,9 @@ export function ResponsePreview({ rule, baseUrl, refreshToken = 0 }: ResponsePre
   const [body, setBody] = useState('');
   const [variantIndex, setVariantIndex] = useState(-1);
 
-  const variants = rule.variants ?? [];
+  // The sequence has its own switch; while it is off there is nothing to switch
+  // between, so the preview falls back to the base response.
+  const variants = rule.variantsEnabled === false ? [] : (rule.variants ?? []);
   useEffect(() => {
     setVariantIndex(-1);
   }, [rule.id, variants.length]);

@@ -152,7 +152,9 @@ adminRouter.post('/preview', async (req: Request, res: Response) => {
     body: override.body,
   };
 
-  const variantIndex = Number(override.variantIndex ?? -1);
+  // Mirrors the mock route: with the sequence switch off the variants are
+  // parked, so the preview always shows the plain response config.
+  const variantIndex = rule.variantsEnabled === false ? -1 : Number(override.variantIndex ?? -1);
   const effectiveRule = variantIndex >= 0 ? applyVariant(rule, variantIndex) : rule;
 
   try {

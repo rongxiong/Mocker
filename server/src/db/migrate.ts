@@ -21,7 +21,9 @@ CREATE TABLE IF NOT EXISTS rules (
   schema_root_min INTEGER NOT NULL DEFAULT 2,
   schema_root_max INTEGER NOT NULL DEFAULT 5,
   conditions     TEXT NOT NULL DEFAULT '[]',
+  conditions_enabled INTEGER NOT NULL DEFAULT 1,
   variants       TEXT NOT NULL DEFAULT '[]',
+  variants_enabled INTEGER NOT NULL DEFAULT 1,
   abort          TEXT NOT NULL DEFAULT 'none',
   envelope       TEXT NOT NULL DEFAULT 'none',
   group_name     TEXT NOT NULL DEFAULT '',
@@ -74,6 +76,23 @@ function ensureColumn(table: string, column: string, ddl: string): void {
   }
 }
 
+/**
+ * The condition and variant switches started out as a single `advanced_enabled`
+ * flag. Carry its value over to the split columns so a rule whose advanced
+ * settings were already parked stays parked, then leave the old column unused.
+ */
+function splitAdvancedSwitch(): void {
+  const columns = columnsOf('rules');
+  const legacy = columns.includes('advanced_enabled');
+  for (const column of ['conditions_enabled', 'variants_enabled']) {
+    const created = !columns.includes(column);
+    ensureColumn('rules', column, `${column} INTEGER NOT NULL DEFAULT 1`);
+    if (created && legacy) {
+      db().exec(`UPDATE rules SET ${column} = advanced_enabled`);
+    }
+  }
+}
+
 export function migrate(): void {
   db().exec(SCHEMA);
 
@@ -83,6 +102,7 @@ export function migrate(): void {
   ensureColumn('rules', 'schema_root_max', 'schema_root_max INTEGER NOT NULL DEFAULT 5');
   ensureColumn('rules', 'conditions', "conditions TEXT NOT NULL DEFAULT '[]'");
   ensureColumn('rules', 'variants', "variants TEXT NOT NULL DEFAULT '[]'");
+  splitAdvancedSwitch();
   ensureColumn('rules', 'abort', "abort TEXT NOT NULL DEFAULT 'none'");
   ensureColumn('rules', 'envelope', "envelope TEXT NOT NULL DEFAULT 'none'");
   ensureColumn('rules', 'group_name', "group_name TEXT NOT NULL DEFAULT ''");

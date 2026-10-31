@@ -13,6 +13,7 @@ import type {
   SchemaRootType,
 } from '../types';
 import { createDefaultRule, uid } from '../defaults';
+import { hasEffectiveConditions } from '../services/conditions';
 import { normalizePath } from '../pathUtils';
 import { transaction } from './index';
 
@@ -36,7 +37,9 @@ interface RuleRow {
   schema_root_min: number;
   schema_root_max: number;
   conditions: string;
+  conditions_enabled: number;
   variants: string;
+  variants_enabled: number;
   abort: string;
   envelope: string;
   group_name: string;
@@ -73,7 +76,9 @@ function rowToRule(row: RuleRow): MockRule {
     schemaRoot: (row.schema_root ?? 'object') as SchemaRootType,
     schemaRootMin: Number(row.schema_root_min ?? 2),
     schemaRootMax: Number(row.schema_root_max ?? 5),
+    conditionsEnabled: row.conditions_enabled !== 0,
     conditions: parseJson<RuleCondition[]>(row.conditions, []),
+    variantsEnabled: row.variants_enabled !== 0,
     variants: parseJson<ResponseVariant[]>(row.variants, []),
     abort: (row.abort ?? 'none') as AbortMode,
     envelope: (row.envelope ?? 'none') as EnvelopeType,
@@ -86,8 +91,8 @@ function rowToRule(row: RuleRow): MockRule {
 const SELECT = 'SELECT * FROM rules';
 const FIELDS = `id, name, method, path, enabled, description, delay_ms, delay_jitter_ms,
   status_code, headers, content_type, response_type, body, file_id, schema_json,
-  schema_root, schema_root_min, schema_root_max, conditions, variants, abort, envelope, group_name,
-  created_at, updated_at`;
+  schema_root, schema_root_min, schema_root_max, conditions, conditions_enabled, variants,
+  variants_enabled, abort, envelope, group_name, created_at, updated_at`;
 
 function valuesOf(rule: MockRule): unknown[] {
   return [
@@ -110,7 +115,9 @@ function valuesOf(rule: MockRule): unknown[] {
     rule.schemaRootMin ?? 2,
     rule.schemaRootMax ?? 5,
     JSON.stringify(rule.conditions ?? []),
+    rule.conditionsEnabled === false ? 0 : 1,
     JSON.stringify(rule.variants ?? []),
+    rule.variantsEnabled === false ? 0 : 1,
     rule.abort ?? 'none',
     rule.envelope ?? 'none',
     rule.group ?? '',
@@ -145,7 +152,7 @@ export function findConflicts(rules: MockRule[] = listRules()): RuleConflict[] {
     if (group.length < 2) continue;
     // Mirrors `matchAll`: conditional rules win over catch-all ones regardless of
     // creation order; between equals the newest (first in list order) is used.
-    const active = group.find((rule) => (rule.conditions?.length ?? 0) > 0) ?? group[0]!;
+    const active = group.find((rule) => hasEffectiveConditions(rule)) ?? group[0]!;
     conflicts.push({ key, ids: group.map((rule) => rule.id), activeId: active.id });
   }
   return conflicts;
@@ -167,8 +174,8 @@ export function updateRule(id: string, patch: Partial<MockRule>): MockRule | und
   run(
     `UPDATE rules SET name=?, method=?, path=?, enabled=?, description=?, delay_ms=?, delay_jitter_ms=?,
       status_code=?, headers=?, content_type=?, response_type=?, body=?, file_id=?, schema_json=?,
-      schema_root=?, schema_root_min=?, schema_root_max=?, conditions=?, variants=?, abort=?,
-      envelope=?, group_name=?, updated_at=?
+      schema_root=?, schema_root_min=?, schema_root_max=?, conditions=?, conditions_enabled=?,
+      variants=?, variants_enabled=?, abort=?, envelope=?, group_name=?, updated_at=?
      WHERE id=?`,
     next.name,
     next.method,
@@ -188,7 +195,9 @@ export function updateRule(id: string, patch: Partial<MockRule>): MockRule | und
     next.schemaRootMin ?? 2,
     next.schemaRootMax ?? 5,
     JSON.stringify(next.conditions ?? []),
+    next.conditionsEnabled === false ? 0 : 1,
     JSON.stringify(next.variants ?? []),
+    next.variantsEnabled === false ? 0 : 1,
     next.abort ?? 'none',
     next.envelope ?? 'none',
     next.group ?? '',
@@ -269,7 +278,9 @@ export function normalizeRule(input: Partial<MockRule>): MockRule {
     delayJitterMs: toNumber(input.delayJitterMs, base.delayJitterMs),
     headers: Array.isArray(input.headers) ? input.headers : [],
     schema: Array.isArray(input.schema) ? input.schema : base.schema,
+    conditionsEnabled: input.conditionsEnabled ?? true,
     conditions: Array.isArray(input.conditions) ? input.conditions : [],
+    variantsEnabled: input.variantsEnabled ?? true,
     variants: Array.isArray(input.variants) ? input.variants.map(normalizeVariant) : [],
     schemaRoot: input.schemaRoot ?? 'object',
     schemaRootMin: toNumber(input.schemaRootMin, 2),

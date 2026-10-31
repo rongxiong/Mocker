@@ -1,4 +1,13 @@
-import type { MockRequestSnapshot, RuleCondition } from '../types';
+import type { MockRequestSnapshot, MockRule, RuleCondition } from '../types';
+
+/**
+ * A rule only takes part in condition matching while its condition switch is
+ * on. Switching it off parks the conditions and lets the rule behave like a
+ * plain catch-all serving the response config above.
+ */
+export function hasEffectiveConditions(rule: MockRule): boolean {
+  return rule.conditionsEnabled !== false && (rule.conditions?.length ?? 0) > 0;
+}
 
 function pickByPath(source: unknown, path: string): unknown {
   if (!path) return source;

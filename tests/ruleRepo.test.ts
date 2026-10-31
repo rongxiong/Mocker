@@ -73,6 +73,8 @@ describe('rule CRUD', () => {
       schema: [{ id: 'f1', name: 'id', type: 'int', min: 1, max: 2 }],
       conditions: [{ id: 'c1', source: 'query', key: 'type', op: 'eq', value: 'vip' }],
       variants: [{ id: 'v1', label: 'ok', statusCode: '201', delayMs: '0', body: '{}' }],
+      conditionsEnabled: false,
+      variantsEnabled: false,
       abort: 'close',
       envelope: 'codeData',
       group: 'users',
@@ -90,6 +92,8 @@ describe('rule CRUD', () => {
     ]);
     expect(stored?.abort).toBe('close');
     expect(stored?.envelope).toBe('codeData');
+    expect(stored?.conditionsEnabled).toBe(false);
+    expect(stored?.variantsEnabled).toBe(false);
     expect(stored?.group).toBe('users');
   });
 
@@ -150,6 +154,21 @@ describe('findConflicts', () => {
     expect(conflicts).toHaveLength(1);
     expect(conflicts[0]?.activeId).toBe('vip');
   });
+
+  it('treats a rule with the condition switch off as a catch-all', () => {
+    const plain = makeRule({ id: 'plain', path: '/api/orders' });
+    const parked = makeRule({
+      id: 'parked',
+      path: '/api/orders',
+      conditionsEnabled: false,
+      conditions: [{ id: 'c1', source: 'query', key: 'type', op: 'eq', value: 'vip' }],
+    });
+
+    // Parked conditions no longer make the rule specific, so the catch-all wins.
+    const conflicts = findConflicts([plain, parked]);
+    expect(conflicts).toHaveLength(1);
+    expect(conflicts[0]?.activeId).toBe('plain');
+  });
 });
 
 describe('normalizeRule', () => {
@@ -162,6 +181,8 @@ describe('normalizeRule', () => {
     expect(rule.headers).toEqual([]);
     expect(rule.conditions).toEqual([]);
     expect(rule.variants).toEqual([]);
+    expect(rule.conditionsEnabled).toBe(true);
+    expect(rule.variantsEnabled).toBe(true);
     expect(rule.schema.length).toBeGreaterThan(0);
     expect(rule.abort).toBe('none');
     expect(rule.envelope).toBe('none');

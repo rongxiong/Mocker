@@ -110,8 +110,12 @@ export interface MockRule {
   schemaRoot: SchemaRootType;
   schemaRootMin: number;
   schemaRootMax: number;
+  /** when off, `conditions` are kept but ignored, so the rule is a catch-all */
+  conditionsEnabled: boolean;
   /** all conditions must match for the rule to be used */
   conditions: RuleCondition[];
+  /** when off, `variants` are kept but ignored, so every request gets `body` */
+  variantsEnabled: boolean;
   /** when non-empty, requests cycle through these overrides */
   variants: ResponseVariant[];
   abort: AbortMode;

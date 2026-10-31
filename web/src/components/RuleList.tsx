@@ -114,7 +114,7 @@ export function RuleList({
             {conflictIds.has(rule.id) ? (
               <span
                 title="存在重复的方法 + 路径，只有最新一条会被命中"
-                className="flex items-center gap-0.5 rounded border border-amber-400/30 bg-amber-400/10 px-1 text-[10px] text-amber-300"
+                className="flex shrink-0 items-center gap-0.5 whitespace-nowrap rounded border border-amber-400/30 bg-amber-400/10 px-1 text-[10px] text-amber-300"
               >
                 <AlertTriangle size={9} />
                 重复
@@ -232,7 +232,7 @@ export function RuleList({
           <Select
             value={sortBy}
             onChange={(event) => setSortBy(event.target.value as 'recent' | 'path' | 'name')}
-            className="h-7 w-[92px] text-[11.5px]"
+            className="h-7 w-[108px] shrink-0 text-[11.5px]"
           >
             <option value="recent">最近创建</option>
             <option value="path">按路径</option>

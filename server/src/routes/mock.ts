@@ -2,7 +2,7 @@ import { Router } from 'express';
 import type { NextFunction, Request, Response } from 'express';
 import { matchAll } from '../services/matcher';
 import { buildResponse, sleep } from '../services/responder';
-import { matchesConditions } from '../services/conditions';
+import { hasEffectiveConditions, matchesConditions } from '../services/conditions';
 import { applyVariant, nextVariantIndex } from '../services/variants';
 import { recordLog } from '../services/logStore';
 import { getSetting } from '../db/settingsRepo';
@@ -152,13 +152,14 @@ mockRouter.use(async (req: Request, res: Response, next: NextFunction) => {
   const startedAt = Date.now();
   const candidates = matchAll(req.method, pathname);
   // Rules with conditions are more specific, so they win over catch-all rules
-  // regardless of creation order.
+  // regardless of creation order. Rules with their condition switch off count
+  // as catch-all, so they just serve the response config above.
   const match =
     candidates.find(
       (item) =>
-        (item.rule.conditions?.length ?? 0) > 0 &&
+        hasEffectiveConditions(item.rule) &&
         matchesConditions(item.rule.conditions, snapshot(req, item.params)),
-    ) ?? candidates.find((item) => (item.rule.conditions?.length ?? 0) === 0);
+    ) ?? candidates.find((item) => !hasEffectiveConditions(item.rule));
 
   if (!match) {
     // With an empty prefix the console lives on the same origin as the mocks, so
@@ -245,7 +246,12 @@ mockRouter.use(async (req: Request, res: Response, next: NextFunction) => {
     return;
   }
 
-  const variantIndex = nextVariantIndex(match.rule.id, match.rule.variants?.length ?? 0);
+  // The sequence has its own switch: while it is off every request gets the
+  // plain response body.
+  const variantIndex =
+    match.rule.variantsEnabled === false
+      ? -1
+      : nextVariantIndex(match.rule.id, match.rule.variants?.length ?? 0);
   const rule = variantIndex >= 0 ? applyVariant(match.rule, variantIndex) : match.rule;
 
   try {
