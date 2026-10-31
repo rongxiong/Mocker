@@ -52,9 +52,18 @@ export const Select = forwardRef<HTMLSelectElement, SelectHTMLAttributes<HTMLSel
 );
 Select.displayName = 'Select';
 
-export function Label({ className, title, children, ...props }: React.LabelHTMLAttributes<HTMLLabelElement>) {
+export function Label({
+  className,
+  title,
+  children,
+  ...props
+}: React.LabelHTMLAttributes<HTMLLabelElement>) {
   return (
-    <label className={cn('field-label truncate', className)} title={title ?? (typeof children === 'string' ? children : undefined)} {...props}>
+    <label
+      className={cn('field-label truncate', className)}
+      title={title ?? (typeof children === 'string' ? children : undefined)}
+      {...props}
+    >
       {children}
     </label>
   );

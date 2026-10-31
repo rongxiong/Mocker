@@ -339,9 +339,7 @@ export function BasicSettings({ rule, groups = [], onChange }: BasicSettingsProp
                   placeholder={condition.op === 'exists' ? '（无需填值）' : 'value'}
                   className="h-8 flex-1 font-mono"
                   disabled={condition.op === 'exists'}
-                  onChange={(event) =>
-                    patchCondition(condition.id, { value: event.target.value })
-                  }
+                  onChange={(event) => patchCondition(condition.id, { value: event.target.value })}
                 />
                 <Button
                   variant="ghost"
