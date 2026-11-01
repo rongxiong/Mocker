@@ -305,7 +305,7 @@ export function SchemaFieldRow({
                     min={0}
                     max={1}
                     value={field.optionalRatio ?? 0.5}
-                    className="h-7 w-[62px] font-mono"
+                    className="w-[62px] font-mono"
                     title="出现概率 0~1"
                     onChange={(event) => patch({ optionalRatio: Number(event.target.value) })}
                   />

@@ -40,7 +40,6 @@ export function patternFrom(value: string): string | null {
     match = DIGIT_RE.exec(value);
   }
   if (cursor < value.length) parts.push(escapeLiteral(value.slice(cursor)));
-  if (cursor < value.length) parts.push(escapeLiteral(value.slice(cursor)));
 
   const source = parts.join('');
   if (source === escapeLiteral(value)) return null;

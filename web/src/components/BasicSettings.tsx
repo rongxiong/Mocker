@@ -83,7 +83,7 @@ export function BasicSettings({ rule, groups = [], onChange }: BasicSettingsProp
         </div>
       </div>
 
-      <div className="grid grid-cols-[110px_1fr] gap-3">
+      <div className="grid grid-cols-[130px_1fr] gap-3">
         <div>
           <Label htmlFor="rule-method">HTTP 方法</Label>
           <Select
