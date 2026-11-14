@@ -6,9 +6,15 @@ import { createApp } from '../server/src/app';
 import { db, initDb } from '../server/src/db';
 import { migrate } from '../server/src/db/migrate';
 import { clearLogs } from '../server/src/services/logStore';
-import { resetVariants } from '../server/src/services/variants';
-import { createDefaultRule } from '../server/src/defaults';
-import type { MockRule, PreviewResult, RequestLogEntry, UploadedFile } from '../server/src/types';
+import { resetSequence } from '../server/src/services/sequence';
+import { createDefaultRule, createResponseEntry } from '../server/src/defaults';
+import type {
+  MockRule,
+  PreviewResult,
+  RequestLogEntry,
+  RuleInput,
+  UploadedFile,
+} from '../server/src/types';
 
 let server: Server;
 let base = '';
@@ -32,10 +38,10 @@ afterAll(async () => {
 
 beforeEach(() => {
   clearLogs();
-  resetVariants();
+  resetSequence();
 });
 
-async function createRule(patch: Partial<MockRule> = {}): Promise<MockRule> {
+async function createRule(patch: RuleInput = {}): Promise<MockRule> {
   const response = await fetch(`${base}/__api/rules`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
@@ -115,6 +121,102 @@ describe('admin API', () => {
     expect(preview.durationMs).toBeLessThan(1000);
   });
 
+  it('persists per-slot switches from a full console update', async () => {
+    const rule = await createRule({
+      path: '/api/save-switch',
+      responses: [
+        createResponseEntry({ body: '{"slot":1}' }),
+        createResponseEntry({ statusCode: 500, body: '{"slot":2}' }),
+      ],
+    });
+    const response = await fetch(`${base}/__api/rules/${rule.id}`, {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        ...rule,
+        responses: rule.responses.map((item, index) => ({ ...item, enabled: index === 0 })),
+      }),
+    });
+    const { rule: saved } = (await response.json()) as { rule: MockRule };
+    expect(saved.responses.map((item) => item.enabled)).toEqual([true, false]);
+
+    const first = await fetch(`${base}/mock/api/save-switch`);
+    const second = await fetch(`${base}/mock/api/save-switch`);
+    expect(first.status).toBe(200);
+    expect(second.status).toBe(200);
+    await expect(second.json()).resolves.toEqual({ slot: 1 });
+  });
+
+  it('previews any chosen response slot, including a disabled one', async () => {
+    const rule = createDefaultRule({
+      responses: [
+        createResponseEntry({ body: '{"slot":1}', statusCode: 200 }),
+        createResponseEntry({
+          body: '<h1>down</h1>',
+          statusCode: 503,
+          responseType: 'html',
+          enabled: false,
+          headers: [{ key: 'X-Slot', value: '2' }],
+        }),
+      ],
+    });
+    const previewFor = async (responseIndex: number) => {
+      const response = await fetch(`${base}/__api/preview`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ rule, request: { responseIndex } }),
+      });
+      return ((await response.json()) as { preview: PreviewResult }).preview;
+    };
+
+    const first = await previewFor(0);
+    expect(first.status).toBe(200);
+    expect(JSON.parse(first.body)).toEqual({ slot: 1 });
+
+    const second = await previewFor(1);
+    expect(second.status).toBe(503);
+    expect(second.body).toBe('<h1>down</h1>');
+    expect(second.headers['x-slot']).toBe('2');
+  });
+
+  it('maps the v2 variantIndex alias and clamps fractional indexes', async () => {
+    const rule = createDefaultRule({
+      responses: [
+        createResponseEntry({ body: '{"slot":1}' }),
+        createResponseEntry({ body: '{"slot":2}' }),
+      ],
+    });
+    const previewFor = async (request: Record<string, unknown>) => {
+      const response = await fetch(`${base}/__api/preview`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ rule, request }),
+      });
+      return ((await response.json()) as { preview: PreviewResult }).preview;
+    };
+
+    expect(JSON.parse((await previewFor({ variantIndex: 0 })).body)).toEqual({ slot: 2 });
+    expect(JSON.parse((await previewFor({ variantIndex: -1 })).body)).toEqual({ slot: 1 });
+    expect(JSON.parse((await previewFor({ responseIndex: 1.5 })).body)).toEqual({ slot: 2 });
+  });
+
+  it('ignores client-supplied id and timestamps on PUT', async () => {
+    const rule = await createRule({ path: '/api/immutable' });
+    const response = await fetch(`${base}/__api/rules/${rule.id}`, {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ ...rule, id: 'hacked', createdAt: 0, updatedAt: 0 }),
+    });
+    const { rule: saved } = (await response.json()) as { rule: MockRule };
+    expect(saved.id).toBe(rule.id);
+    expect(saved.createdAt).toBe(rule.createdAt);
+
+    const stored = (await (await fetch(`${base}/__api/rules/${rule.id}`)).json()) as {
+      rule: MockRule;
+    };
+    expect(stored.rule.createdAt).toBe(rule.createdAt);
+  });
+
   it('exports and re-imports the whole configuration', async () => {
     await createRule({ name: 'Export me', path: '/api/export' });
     const exported = (await (await fetch(`${base}/__api/export`)).json()) as {
@@ -122,8 +224,9 @@ describe('admin API', () => {
       rules: MockRule[];
       settings: Record<string, string>;
     };
-    expect(exported.version).toBe(2);
+    expect(exported.version).toBe(3);
     expect(exported.rules).toHaveLength(1);
+    expect(exported.rules[0]?.updatedAt).toBeGreaterThan(0);
 
     await clearRules();
     const importResponse = await fetch(`${base}/__api/import`, {
@@ -132,6 +235,13 @@ describe('admin API', () => {
       body: JSON.stringify({ mode: 'replace', rules: exported.rules, settings: exported.settings }),
     });
     expect(await importResponse.json()).toMatchObject({ imported: 1, updated: 0, total: 1 });
+    const imported = (await (
+      await fetch(`${base}/__api/rules/${exported.rules[0]!.id}`)
+    ).json()) as { rule: MockRule };
+    expect(imported.rule.updatedAt).toBe(exported.rules[0]?.updatedAt);
+    expect(imported.rule.responses.map((item) => item.enabled)).toEqual(
+      exported.rules[0]?.responses.map((item) => item.enabled),
+    );
   });
 
   it('reports imported rules that overwrite an existing id', async () => {
@@ -147,18 +257,49 @@ describe('admin API', () => {
     ).toMatchObject({ rule: { name: 'after' } });
   });
 
-  it('normalises imported variants with missing fields', async () => {
-    const rule = createDefaultRule({
+  it('imports a v2 backup with flat fields and partial variants', async () => {
+    const legacy = {
+      id: 'legacy-rule',
       name: 'partial variant',
+      method: 'GET',
       path: '/api/partial',
-      variants: [{ id: 'v1' }] as unknown as MockRule['variants'],
-    });
+      enabled: true,
+      description: '',
+      group: '',
+      statusCode: 200,
+      headers: [],
+      contentType: '',
+      responseType: 'json',
+      body: '{"base":true}',
+      fileId: '',
+      schema: [],
+      schemaRoot: 'object',
+      schemaRootMin: 2,
+      schemaRootMax: 5,
+      delayMs: 0,
+      delayJitterMs: 0,
+      envelope: 'none',
+      conditionsEnabled: true,
+      conditions: [],
+      variantsEnabled: true,
+      variants: [{ id: 'v1' }],
+      abort: 'none',
+      createdAt: 1,
+      updatedAt: 1,
+    };
     const response = await fetch(`${base}/__api/import`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ mode: 'replace', rules: [rule] }),
+      body: JSON.stringify({ mode: 'replace', rules: [legacy] }),
     });
     expect(response.ok).toBe(true);
+
+    const { rule } = (await (await fetch(`${base}/__api/rules/legacy-rule`)).json()) as {
+      rule: MockRule;
+    };
+    expect(rule.responses).toHaveLength(2);
+    expect(rule.responses[0]?.body).toBe('{"base":true}');
+    expect(rule.responses[1]).toMatchObject({ id: 'v1', statusCode: 200, body: '{"base":true}' });
 
     const hit = await fetch(`${base}/mock/api/partial`);
     expect(hit.status).toBe(200);
@@ -242,13 +383,12 @@ describe('mock router', () => {
     await expect(plain.json()).resolves.toEqual({ variant: 'plain' });
   });
 
-  it('cycles through response variants', async () => {
+  it('cycles through full response slots', async () => {
     await createRule({
       path: '/api/flaky',
-      body: '{"try":"base"}',
-      variants: [
-        { id: 'v1', label: 'ok', statusCode: '200', delayMs: '', body: '{"try":"first"}' },
-        { id: 'v2', label: 'bad', statusCode: '500', delayMs: '', body: '{"try":"second"}' },
+      responses: [
+        createResponseEntry({ statusCode: 200, body: '{"try":"first"}' }),
+        createResponseEntry({ statusCode: 500, body: '{"try":"second"}' }),
       ],
     });
 
@@ -259,6 +399,97 @@ describe('mock router', () => {
     const second = await fetch(`${base}/mock/api/flaky`);
     expect(second.status).toBe(500);
     await expect(second.json()).resolves.toEqual({ try: 'second' });
+
+    const third = await fetch(`${base}/mock/api/flaky`);
+    expect(third.status).toBe(200);
+    await expect(third.json()).resolves.toEqual({ try: 'first' });
+  });
+
+  it('skips disabled response slots while cycling', async () => {
+    await createRule({
+      path: '/api/skipped',
+      responses: [
+        createResponseEntry({ body: '{"slot":1}' }),
+        createResponseEntry({ body: '{"slot":2}', enabled: false }),
+        createResponseEntry({ body: '{"slot":3}', statusCode: 503 }),
+      ],
+    });
+
+    const first = await fetch(`${base}/mock/api/skipped`);
+    await expect(first.json()).resolves.toEqual({ slot: 1 });
+    const second = await fetch(`${base}/mock/api/skipped`);
+    expect(second.status).toBe(503);
+    await expect(second.json()).resolves.toEqual({ slot: 3 });
+    const third = await fetch(`${base}/mock/api/skipped`);
+    await expect(third.json()).resolves.toEqual({ slot: 1 });
+
+    const { logs } = (await (await fetch(`${base}/__api/logs`)).json()) as {
+      logs: RequestLogEntry[];
+    };
+    // The log keeps the real slot number, so disabled slots are still visible.
+    expect(logs.some((entry) => entry.ruleName.includes('#3'))).toBe(true);
+    expect(logs.some((entry) => entry.ruleName.includes('#2'))).toBe(false);
+  });
+
+  it('returns the only enabled slot without cycling', async () => {
+    await createRule({
+      path: '/api/first-enabled',
+      responses: [
+        createResponseEntry({ body: '{"slot":1}', enabled: false }),
+        createResponseEntry({ body: '{"slot":2}' }),
+      ],
+    });
+
+    const first = await fetch(`${base}/mock/api/first-enabled`);
+    await expect(first.json()).resolves.toEqual({ slot: 2 });
+    const second = await fetch(`${base}/mock/api/first-enabled`);
+    await expect(second.json()).resolves.toEqual({ slot: 2 });
+  });
+
+  it('still answers with slot 0 when every slot is disabled', async () => {
+    await createRule({
+      path: '/api/all-off',
+      responses: [
+        createResponseEntry({ body: '{"slot":1}', enabled: false }),
+        createResponseEntry({ body: '{"slot":2}', enabled: false }),
+      ],
+    });
+
+    const hit = await fetch(`${base}/mock/api/all-off`);
+    expect(hit.status).toBe(200);
+    await expect(hit.json()).resolves.toEqual({ slot: 1 });
+  });
+
+  it('persists per-slot switches and previews a disabled slot', async () => {
+    const rule = await createRule({
+      path: '/api/preview-off',
+      responses: [
+        createResponseEntry({ body: '{"slot":1}' }),
+        createResponseEntry({ body: '{"slot":2}' }),
+      ],
+    });
+    const update = await fetch(`${base}/__api/rules/${rule.id}`, {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        ...rule,
+        responses: rule.responses.map((item, index) => ({ ...item, enabled: index === 0 })),
+      }),
+    });
+    const { rule: saved } = (await update.json()) as { rule: MockRule };
+    expect(saved.responses.map((item) => item.enabled)).toEqual([true, false]);
+
+    // A disabled slot can still be inspected without being served.
+    const response = await fetch(`${base}/__api/preview`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ rule: saved, request: { responseIndex: 1 } }),
+    });
+    const { preview } = (await response.json()) as { preview: PreviewResult };
+    expect(JSON.parse(preview.body)).toEqual({ slot: 2 });
+
+    const hit = await fetch(`${base}/mock/api/preview-off`);
+    await expect(hit.json()).resolves.toEqual({ slot: 1 });
   });
 
   it('serves the plain response config when the condition switch is off', async () => {
@@ -280,17 +511,16 @@ describe('mock router', () => {
     await expect(matching.json()).resolves.toEqual({ variant: 'base' });
   });
 
-  it('serves the plain response config when the sequence switch is off', async () => {
+  it('serves only the enabled slot without cycling', async () => {
     await createRule({
       path: '/api/variants-off',
-      body: '{"variant":"base"}',
-      variantsEnabled: false,
-      variants: [
-        { id: 'v1', label: 'seq', statusCode: '500', delayMs: '', body: '{"variant":"seq"}' },
+      responses: [
+        createResponseEntry({ body: '{"variant":"base"}' }),
+        createResponseEntry({ statusCode: 500, body: '{"variant":"seq"}', enabled: false }),
       ],
     });
 
-    // Conditions stay untouched, so only the sequence is parked.
+    // Conditions stay untouched; the disabled extra slot is simply skipped.
     const first = await fetch(`${base}/mock/api/variants-off`);
     expect(first.status).toBe(200);
     await expect(first.json()).resolves.toEqual({ variant: 'base' });
@@ -300,14 +530,16 @@ describe('mock router', () => {
     await expect(second.json()).resolves.toEqual({ variant: 'base' });
   });
 
-  it('keeps matching on conditions while only the sequence is parked', async () => {
-    await createRule({ path: '/api/mixed', body: '{"variant":"plain"}' });
+  it('keeps condition priority while an extra slot is disabled', async () => {
     await createRule({
       path: '/api/mixed',
-      body: '{"variant":"vip"}',
-      variantsEnabled: false,
-      variants: [
-        { id: 'v1', label: 'seq', statusCode: '500', delayMs: '', body: '{"variant":"seq"}' },
+      responses: [createResponseEntry({ body: '{"variant":"plain"}' })],
+    });
+    await createRule({
+      path: '/api/mixed',
+      responses: [
+        createResponseEntry({ body: '{"variant":"vip"}' }),
+        createResponseEntry({ statusCode: 500, body: '{"variant":"seq"}', enabled: false }),
       ],
       conditions: [{ id: 'c1', source: 'query', key: 'type', op: 'eq', value: 'vip' }],
     });
@@ -573,8 +805,8 @@ describe('file library', () => {
   });
 });
 
-describe('settings and variants', () => {
-  it('stores settings and resets variant counters', async () => {
+describe('settings and responses', () => {
+  it('stores settings and resets sequence counters', async () => {
     const response = await fetch(`${base}/__api/settings`, {
       method: 'PUT',
       headers: { 'content-type': 'application/json' },
@@ -590,12 +822,20 @@ describe('settings and variants', () => {
       body: JSON.stringify({ proxyTarget: '' }),
     });
 
-    const reset = await fetch(`${base}/__api/variants/reset`, {
+    const reset = await fetch(`${base}/__api/responses/reset`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ ruleId: 'rule-1' }),
     });
     expect(await reset.json()).toEqual({ ok: true });
+
+    // The v2 endpoint remains available for older clients.
+    const legacyReset = await fetch(`${base}/__api/variants/reset`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ ruleId: 'rule-1' }),
+    });
+    expect(await legacyReset.json()).toEqual({ ok: true });
   });
 
   it('reports preview errors without throwing', async () => {

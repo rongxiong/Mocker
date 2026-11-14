@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { FileJson, Loader2, Plus, Sparkles } from 'lucide-react';
-import type { MockRule, SchemaField, SchemaRootType } from '@shared/types';
+import type { ResponseConfig, SchemaField, SchemaRootType } from '@shared/types';
 import { Button } from './ui/button';
 import { Dialog } from './ui/dialog';
 import { Tabs } from './ui/tabs';
@@ -8,7 +8,7 @@ import { SchemaFieldRow } from './SchemaFieldRow';
 import { LazyCodeEditor as CodeEditor } from './LazyCodeEditor';
 import { Input } from './ui/input';
 import { api } from '@/lib/api';
-import { createDefaultField } from '@shared/defaults';
+import { createDefaultField, createResponseEntry } from '@shared/defaults';
 import { inferSchema } from '@shared/schemaInfer';
 import type { StringInferMode } from '@shared/schemaInfer';
 import { toast } from './ui/toast';
@@ -19,7 +19,7 @@ interface SchemaEditorProps {
   root?: SchemaRootType;
   rootMin?: number;
   rootMax?: number;
-  onRootChange?: (patch: Partial<MockRule>) => void;
+  onRootChange?: (patch: Partial<ResponseConfig>) => void;
 }
 
 const SAMPLE_INPUT = `{
@@ -58,7 +58,19 @@ export function SchemaEditor({
   const generate = async () => {
     setLoading(true);
     const preview = await api
-      .preview({ responseType: 'schema', schema: fields, method: 'GET', path: '/preview' })
+      .preview({
+        responses: [
+          createResponseEntry({
+            responseType: 'schema',
+            schema: fields,
+            schemaRoot: root,
+            schemaRootMin: rootMin,
+            schemaRootMax: rootMax,
+          }),
+        ],
+        method: 'GET',
+        path: '/preview',
+      })
       .catch(() => null);
     setSample(preview?.error ? `生成失败：${preview.error}` : (preview?.body ?? ''));
     setLoading(false);

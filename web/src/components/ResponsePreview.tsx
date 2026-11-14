@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   AlertTriangle,
   ChevronDown,
@@ -15,6 +15,7 @@ import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { LazyCodeEditor as CodeEditor } from './LazyCodeEditor';
 import { api } from '@/lib/api';
+import { responseAt } from '@shared/defaults';
 import { buildHttpie, cn, copyText, prettyJson } from '@/lib/utils';
 import { toast } from './ui/toast';
 
@@ -115,14 +116,16 @@ export function ResponsePreview({ rule, baseUrl, refreshToken = 0 }: ResponsePre
   const [queryRows, setQueryRows] = useState<HeaderEntry[]>([]);
   const [headerRows, setHeaderRows] = useState<HeaderEntry[]>([]);
   const [body, setBody] = useState('');
-  const [variantIndex, setVariantIndex] = useState(-1);
+  const [responseIndex, setResponseIndex] = useState(0);
+  const requestSeq = useRef(0);
 
-  // The sequence has its own switch; while it is off there is nothing to switch
-  // between, so the preview falls back to the base response.
-  const variants = rule.variantsEnabled === false ? [] : (rule.variants ?? []);
+  // Every slot is a full response; the picker can inspect any of them,
+  // including slots that are currently disabled for real requests.
+  const slots = rule.responses ?? [];
+  const showSlots = slots.length > 1;
   useEffect(() => {
-    setVariantIndex(-1);
-  }, [rule.id, variants.length]);
+    setResponseIndex(0);
+  }, [rule.id, slots.length]);
 
   useEffect(() => {
     setParamValues(
@@ -146,15 +149,18 @@ export function ResponsePreview({ rule, baseUrl, refreshToken = 0 }: ResponsePre
       query,
       headers,
       body: parseBody(body),
-      variantIndex,
+      responseIndex,
     };
-  }, [paramValues, queryRows, headerRows, body, variantIndex]);
+  }, [paramValues, queryRows, headerRows, body, responseIndex]);
 
   const payloadKey = JSON.stringify(requestPayload);
 
   const run = useCallback(async () => {
+    // Out-of-order responses must not overwrite the newest preview.
+    const seq = ++requestSeq.current;
     setLoading(true);
     const result = await api.preview(rule, requestPayload).catch(() => null);
+    if (seq !== requestSeq.current) return;
     setPreview(result);
     setLoading(false);
   }, [rule, payloadKey]);
@@ -174,14 +180,15 @@ export function ResponsePreview({ rule, baseUrl, refreshToken = 0 }: ResponsePre
     cleanRows(queryRows).map((row) => [row.key, row.value]),
   ).toString();
 
+  const activeResponse = responseAt(rule, responseIndex);
   const language =
     preview?.contentType.includes('json') ||
-    rule.responseType === 'json' ||
-    rule.responseType === 'schema'
+    activeResponse.responseType === 'json' ||
+    activeResponse.responseType === 'schema'
       ? 'json'
-      : rule.responseType === 'html'
+      : activeResponse.responseType === 'html'
         ? 'html'
-        : rule.responseType === 'javascript'
+        : activeResponse.responseType === 'javascript'
           ? 'javascript'
           : 'text';
 
@@ -207,6 +214,34 @@ export function ResponsePreview({ rule, baseUrl, refreshToken = 0 }: ResponsePre
       </div>
 
       <div className="flex-1 overflow-y-auto p-3">
+        {showSlots ? (
+          <div className="mb-3 flex items-center gap-1.5">
+            <span className="text-[10.5px] uppercase tracking-[0.14em] text-muted-300">响应</span>
+            <div className="flex flex-wrap gap-1">
+              {slots.map((slot, index) => (
+                <button
+                  key={slot.id}
+                  type="button"
+                  title={`${slot.label || `第 ${index + 1} 档响应`}${slot.enabled === false ? '（已停用，仅供查看）' : ''}`}
+                  onClick={() => setResponseIndex(index)}
+                  className={cn(
+                    'cursor-pointer rounded-md border px-1.5 py-[2px] text-[10.5px] transition-colors',
+                    responseIndex === index
+                      ? 'border-brand-500/50 bg-brand-500/20 text-fg'
+                      : 'border-line text-muted-300 hover:text-muted-100',
+                    slot.enabled === false && 'opacity-55 line-through',
+                  )}
+                >
+                  #{index + 1}
+                  {index === 0 ? ' 默认' : ''}
+                  {slot.label ? ` ${slot.label}` : ''}
+                  {slot.enabled === false ? ' 停用' : ''}
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : null}
+
         <div className="mb-3 rounded-xl border border-line bg-fill">
           <button
             type="button"
@@ -222,45 +257,6 @@ export function ResponsePreview({ rule, baseUrl, refreshToken = 0 }: ResponsePre
 
           {openRequest ? (
             <div className="space-y-2.5 border-t border-line px-2.5 py-2.5">
-              {variants.length > 0 ? (
-                <div className="flex items-center gap-1.5">
-                  <span className="text-[10.5px] uppercase tracking-[0.14em] text-muted-300">
-                    序列
-                  </span>
-                  <div className="flex flex-wrap gap-1">
-                    <button
-                      type="button"
-                      onClick={() => setVariantIndex(-1)}
-                      className={cn(
-                        'cursor-pointer rounded-md border px-1.5 py-[2px] text-[10.5px] transition-colors',
-                        variantIndex === -1
-                          ? 'border-brand-500/50 bg-brand-500/20 text-fg'
-                          : 'border-line text-muted-300 hover:text-muted-100',
-                      )}
-                    >
-                      基准
-                    </button>
-                    {variants.map((variant, index) => (
-                      <button
-                        key={variant.id}
-                        type="button"
-                        title={variant.label || `第 ${index + 1} 次`}
-                        onClick={() => setVariantIndex(index)}
-                        className={cn(
-                          'cursor-pointer rounded-md border px-1.5 py-[2px] text-[10.5px] transition-colors',
-                          variantIndex === index
-                            ? 'border-accent-400/50 bg-accent-400/20 text-fg'
-                            : 'border-line text-muted-300 hover:text-muted-100',
-                        )}
-                      >
-                        #{index + 1}
-                        {variant.label ? ` ${variant.label}` : ''}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              ) : null}
-
               {pathParams.length > 0 ? (
                 <div>
                   <p className="mb-1 text-[10.5px] uppercase tracking-[0.14em] text-muted-300">

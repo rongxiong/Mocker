@@ -5,10 +5,13 @@ import { MAX_DELAY_MS, UPLOAD_DIR } from '../config';
 import { getFile } from '../db/fileRepo';
 import { runScript } from './jsRunner';
 import { generateArrayFromSchema, generateFromSchema } from './schemaGen';
-import type { MockRequestSnapshot, MockRule } from '../types';
+import type { MockRequestSnapshot, MockRule, ResponseConfig } from '../types';
+import { firstEnabledResponse, responseConfigOf } from '../defaults';
 
 export interface ResponderInput {
   rule: MockRule;
+  /** which response slot to serve; defaults to the first one */
+  responseIndex?: number;
   req: MockRequestSnapshot;
   skipDelay?: boolean;
 }
@@ -25,15 +28,16 @@ export function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, Math.max(0, ms)));
 }
 
-export function delayFor(rule: MockRule): number {
-  const base = Math.max(0, Math.min(MAX_DELAY_MS, rule.delayMs ?? 0));
-  const jitter = Math.max(0, Math.min(MAX_DELAY_MS, rule.delayJitterMs ?? 0));
+export function delayFor(input: MockRule | ResponseConfig): number {
+  const config = 'responses' in input ? firstEnabledResponse(input) : input;
+  const base = Math.max(0, Math.min(MAX_DELAY_MS, config.delayMs ?? 0));
+  const jitter = Math.max(0, Math.min(MAX_DELAY_MS, config.delayJitterMs ?? 0));
   return base + Math.round(Math.random() * jitter);
 }
 
-function headersFromRule(rule: MockRule): Record<string, string> {
+function headersFromResponse(config: ResponseConfig): Record<string, string> {
   const headers: Record<string, string> = {};
-  for (const entry of rule.headers ?? []) {
+  for (const entry of config.headers ?? []) {
     const key = entry.key?.trim();
     if (!key) continue;
     headers[key.toLowerCase()] = entry.value ?? '';
@@ -41,8 +45,8 @@ function headersFromRule(rule: MockRule): Record<string, string> {
   return headers;
 }
 
-function applyEnvelope(rule: MockRule, body: string): string {
-  if (rule.envelope === 'none') return body;
+function applyEnvelope(config: ResponseConfig, body: string): string {
+  if (config.envelope === 'none') return body;
   let payload: unknown = body;
   try {
     payload = JSON.parse(body);
@@ -50,7 +54,7 @@ function applyEnvelope(rule: MockRule, body: string): string {
     /* keep the raw string when the body is not valid JSON */
   }
   const wrapped =
-    rule.envelope === 'codeData'
+    config.envelope === 'codeData'
       ? { code: 0, data: payload }
       : { code: 0, message: 'ok', data: payload };
   return JSON.stringify(wrapped, null, 2);
@@ -61,29 +65,30 @@ function isTextMime(value: string): boolean {
 }
 
 export async function buildResponse(input: ResponderInput): Promise<ResponderOutput> {
-  const { rule, req, skipDelay } = input;
+  const { rule, req, skipDelay, responseIndex } = input;
+  const config = responseConfigOf(rule, responseIndex ?? 0);
   const started = Date.now();
-  const delay = skipDelay ? 0 : delayFor(rule);
+  const delay = skipDelay ? 0 : delayFor(config);
   if (delay > 0) await sleep(delay);
 
-  const headers = headersFromRule(rule);
-  let status = rule.statusCode || 200;
+  const headers = headersFromResponse(config);
+  let status = config.statusCode || 200;
   let body: string | Buffer;
-  let contentType = rule.contentType?.trim() ?? '';
+  let contentType = config.contentType?.trim() ?? '';
 
-  switch (rule.responseType) {
+  switch (config.responseType) {
     case 'json': {
-      body = rule.body ?? '';
+      body = config.body ?? '';
       if (!contentType) contentType = 'application/json; charset=utf-8';
       break;
     }
     case 'html': {
-      body = rule.body ?? '';
+      body = config.body ?? '';
       if (!contentType) contentType = 'text/html; charset=utf-8';
       break;
     }
     case 'file': {
-      const file = rule.fileId ? getFile(rule.fileId) : undefined;
+      const file = config.fileId ? getFile(config.fileId) : undefined;
       if (!file) {
         status = 500;
         body = JSON.stringify({
@@ -99,7 +104,7 @@ export async function buildResponse(input: ResponderInput): Promise<ResponderOut
       break;
     }
     case 'javascript': {
-      const result = runScript(rule.body ?? '', req);
+      const result = runScript(config.body ?? '', req);
       if (typeof result === 'string') {
         body = result;
         if (!contentType) contentType = 'text/plain; charset=utf-8';
@@ -114,24 +119,24 @@ export async function buildResponse(input: ResponderInput): Promise<ResponderOut
     }
     case 'schema': {
       const generated =
-        rule.schemaRoot === 'array'
-          ? generateArrayFromSchema(rule.schema ?? [], rule.schemaRootMin, rule.schemaRootMax)
-          : generateFromSchema(rule.schema ?? []);
+        config.schemaRoot === 'array'
+          ? generateArrayFromSchema(config.schema ?? [], config.schemaRootMin, config.schemaRootMax)
+          : generateFromSchema(config.schema ?? []);
       body = JSON.stringify(generated, null, 2);
       if (!contentType) contentType = 'application/json; charset=utf-8';
       break;
     }
     default: {
-      body = rule.body ?? '';
+      body = config.body ?? '';
       if (!contentType) contentType = 'text/plain; charset=utf-8';
     }
   }
 
   if (
-    rule.envelope !== 'none' &&
-    (rule.responseType === 'json' || rule.responseType === 'schema')
+    config.envelope !== 'none' &&
+    (config.responseType === 'json' || config.responseType === 'schema')
   ) {
-    body = applyEnvelope(rule, String(body));
+    body = applyEnvelope(config, String(body));
   }
 
   if (contentType) headers['content-type'] = contentType;

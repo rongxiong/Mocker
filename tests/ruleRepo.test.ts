@@ -15,8 +15,9 @@ import {
   ruleVersion,
   updateRule,
 } from '../server/src/db/ruleRepo';
-import { createDefaultRule } from '../server/src/defaults';
-import type { MockRule } from '../server/src/types';
+import { createDefaultRule, createResponseEntry } from '../server/src/defaults';
+import { legacyRowToInput } from '../server/src/db/migrate';
+import type { MockRule, RuleInput } from '../server/src/types';
 
 beforeAll(async () => {
   await initDb();
@@ -27,7 +28,7 @@ beforeEach(() => {
   deleteAllRules();
 });
 
-const makeRule = (overrides: Partial<MockRule> = {}): MockRule =>
+const makeRule = (overrides: RuleInput = {}): MockRule =>
   createDefaultRule({ id: `rule-${Math.random().toString(36).slice(2, 8)}`, ...overrides });
 
 describe('rule CRUD', () => {
@@ -45,14 +46,25 @@ describe('rule CRUD', () => {
   });
 
   it('updates only the patched fields and refreshes updatedAt', () => {
-    const rule = makeRule({ name: 'before', statusCode: 200, createdAt: 1, updatedAt: 1 });
+    const rule = makeRule({ name: 'before', createdAt: 1, updatedAt: 1 });
     insertRule(rule);
 
-    const updated = updateRule(rule.id, { name: 'after', statusCode: 404 });
+    const updated = updateRule(rule.id, {
+      name: 'after',
+      responses: [createResponseEntry({ statusCode: 404 })],
+    });
     expect(updated?.name).toBe('after');
-    expect(updated?.statusCode).toBe(404);
+    expect(updated?.responses[0]?.statusCode).toBe(404);
     expect(updated?.updatedAt).toBeGreaterThan(rule.updatedAt);
     expect(getRule(rule.id)?.name).toBe('after');
+  });
+
+  it('folds legacy flat response patches into the default slot', () => {
+    const rule = makeRule();
+    insertRule(rule);
+    const updated = updateRule(rule.id, { delayMs: 42 });
+    expect(updated?.responses[0]?.delayMs).toBe(42);
+    expect(getRule(rule.id)?.responses[0]?.delayMs).toBe(42);
   });
 
   it('returns undefined when updating an unknown rule', () => {
@@ -67,33 +79,44 @@ describe('rule CRUD', () => {
     expect(countRules()).toBe(0);
   });
 
-  it('round-trips nested JSON columns', () => {
+  it('round-trips complete response slots in the JSON column', () => {
     const rule = makeRule({
-      headers: [{ key: 'X-Token', value: 'abc' }],
-      schema: [{ id: 'f1', name: 'id', type: 'int', min: 1, max: 2 }],
+      responses: [
+        createResponseEntry({
+          statusCode: 201,
+          headers: [{ key: 'X-Token', value: 'abc' }],
+          schema: [{ id: 'f1', name: 'id', type: 'int', min: 1, max: 2 }],
+          envelope: 'codeData',
+        }),
+        createResponseEntry({ label: '失败', statusCode: 500, body: '{}', enabled: false }),
+      ],
       conditions: [{ id: 'c1', source: 'query', key: 'type', op: 'eq', value: 'vip' }],
-      variants: [{ id: 'v1', label: 'ok', statusCode: '201', delayMs: '0', body: '{}' }],
       conditionsEnabled: false,
-      variantsEnabled: false,
       abort: 'close',
-      envelope: 'codeData',
       group: 'users',
     });
     insertRule(rule);
 
     const stored = getRule(rule.id);
-    expect(stored?.headers).toEqual([{ key: 'X-Token', value: 'abc' }]);
-    expect(stored?.schema).toEqual([{ id: 'f1', name: 'id', type: 'int', min: 1, max: 2 }]);
+    expect(stored?.responses).toHaveLength(2);
+    expect(stored?.responses[0]).toMatchObject({
+      statusCode: 201,
+      headers: [{ key: 'X-Token', value: 'abc' }],
+      schema: [{ id: 'f1', name: 'id', type: 'int', min: 1, max: 2 }],
+      envelope: 'codeData',
+    });
+    expect(stored?.responses[0]?.enabled).toBe(true);
+    expect(stored?.responses[1]).toMatchObject({
+      label: '失败',
+      statusCode: 500,
+      body: '{}',
+      enabled: false,
+    });
     expect(stored?.conditions).toEqual([
       { id: 'c1', source: 'query', key: 'type', op: 'eq', value: 'vip' },
     ]);
-    expect(stored?.variants).toEqual([
-      { id: 'v1', label: 'ok', statusCode: '201', delayMs: '0', body: '{}' },
-    ]);
     expect(stored?.abort).toBe('close');
-    expect(stored?.envelope).toBe('codeData');
     expect(stored?.conditionsEnabled).toBe(false);
-    expect(stored?.variantsEnabled).toBe(false);
     expect(stored?.group).toBe('users');
   });
 
@@ -177,41 +200,107 @@ describe('normalizeRule', () => {
     expect(rule.id).toBeTruthy();
     expect(rule.name).toBe('imported');
     expect(rule.method).toBe('GET');
-    expect(rule.responseType).toBe('json');
-    expect(rule.headers).toEqual([]);
+    expect(rule.responses).toHaveLength(1);
+    expect(rule.responses[0]?.responseType).toBe('json');
+    expect(rule.responses[0]?.enabled).toBe(true);
+    expect(rule.responses[0]?.headers).toEqual([]);
     expect(rule.conditions).toEqual([]);
-    expect(rule.variants).toEqual([]);
     expect(rule.conditionsEnabled).toBe(true);
-    expect(rule.variantsEnabled).toBe(true);
-    expect(rule.schema.length).toBeGreaterThan(0);
+    expect(rule.responses[0]?.schema.length).toBeGreaterThan(0);
     expect(rule.abort).toBe('none');
-    expect(rule.envelope).toBe('none');
     expect(rule.createdAt).toBeGreaterThan(0);
   });
 
   it('keeps provided ids and drops malformed collections', () => {
     const rule = normalizeRule({
       id: 'keep-me',
-      headers: 'not-an-array' as unknown as MockRule['headers'],
-      schema: 'nope' as unknown as MockRule['schema'],
+      headers: 'not-an-array' as unknown as RuleInput['headers'],
+      schema: 'nope' as unknown as RuleInput['schema'],
     });
     expect(rule.id).toBe('keep-me');
-    expect(rule.headers).toEqual([]);
-    expect(Array.isArray(rule.schema)).toBe(true);
+    expect(rule.responses[0]?.headers).toEqual([]);
+    expect(Array.isArray(rule.responses[0]?.schema)).toBe(true);
   });
 
-  it('fills missing variant fields so applyVariant never sees undefined', () => {
-    const rule = normalizeRule({
-      variants: [
-        { id: 'v1' },
-        { label: 'broken', statusCode: '500' },
-      ] as unknown as MockRule['variants'],
-    });
+  it('converts a v2 database row into full response slots', () => {
+    const rule = normalizeRule(
+      legacyRowToInput({
+        id: 'legacy',
+        name: 'v2 rule',
+        method: 'GET',
+        path: '/api/legacy',
+        enabled: 1,
+        description: '',
+        group_name: '',
+        status_code: 200,
+        headers: '[]',
+        content_type: '',
+        response_type: 'json',
+        body: '{"base":true}',
+        file_id: '',
+        schema_json: '[]',
+        schema_root: 'object',
+        schema_root_min: 2,
+        schema_root_max: 5,
+        delay_ms: 30,
+        delay_jitter_ms: 10,
+        envelope: 'none',
+        conditions: '[]',
+        conditions_enabled: 1,
+        variants: '[{"id":"v1","label":"bad","statusCode":"500","delayMs":"","body":"{}"}]',
+        variants_enabled: 1,
+        abort: 'none',
+        created_at: 1,
+        updated_at: 1,
+      }),
+    );
 
-    expect(rule.variants).toEqual([
-      { id: 'v1', label: 'Variant 1', statusCode: '', delayMs: '', body: '' },
-      { id: expect.any(String), label: 'broken', statusCode: '500', delayMs: '', body: '' },
-    ]);
+    expect(rule.responses).toHaveLength(2);
+    expect(rule.responses[0]).toMatchObject({
+      statusCode: 200,
+      delayMs: 30,
+      delayJitterMs: 10,
+      body: '{"base":true}',
+    });
+    expect(rule.responses[1]).toMatchObject({
+      id: 'v1',
+      label: 'bad',
+      statusCode: 500,
+      delayMs: 30,
+      delayJitterMs: 10,
+      body: '{}',
+    });
+    expect(rule.responses.every((item) => item.enabled)).toBe(true);
+  });
+
+  it('maps a disabled v2 sequence switch to disabled slots', () => {
+    const rule = normalizeRule(
+      legacyRowToInput({
+        id: 'legacy-off',
+        method: 'GET',
+        path: '/api/off',
+        variants: '[{"id":"v1","statusCode":"500","body":"{}"}]',
+        variants_enabled: 0,
+      }),
+    );
+
+    expect(rule.responses).toHaveLength(2);
+    expect(rule.responses.map((item) => item.enabled)).toEqual([true, false]);
+  });
+
+  it('fills missing fields inside imported response slots', () => {
+    const rule = normalizeRule({
+      responses: [{ id: 'slot-1', statusCode: 500 }, { label: 'broken' }],
+    } as unknown as RuleInput);
+
+    expect(rule.responses).toHaveLength(2);
+    expect(rule.responses[0]).toMatchObject({
+      id: 'slot-1',
+      statusCode: 500,
+      responseType: 'json',
+    });
+    expect(rule.responses[1]?.id).toBeTruthy();
+    expect(Array.isArray(rule.responses[1]?.schema)).toBe(true);
   });
 
   it('coerces numeric fields coming from hand-written JSON', () => {
@@ -219,8 +308,8 @@ describe('normalizeRule', () => {
       statusCode: '404' as unknown as number,
       delayMs: '10' as unknown as number,
     });
-    expect(rule.statusCode).toBe(404);
-    expect(rule.delayMs).toBe(10);
+    expect(rule.responses[0]?.statusCode).toBe(404);
+    expect(rule.responses[0]?.delayMs).toBe(10);
   });
 });
 

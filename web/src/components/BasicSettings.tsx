@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import { ChevronDown, ChevronRight, Filter, Plus, Timer, Trash2 } from 'lucide-react';
+import { ChevronDown, ChevronRight, Filter, Plus, Trash2 } from 'lucide-react';
 import type {
+  AbortMode,
   ConditionOperator,
   ConditionSource,
-  HeaderEntry,
   HttpMethod,
   MockRule,
   RuleCondition,
@@ -12,15 +12,8 @@ import { HTTP_METHODS } from '@shared/types';
 import { Input, Label, Select } from './ui/input';
 import { Switch } from './ui/switch';
 import { Button } from './ui/button';
-import {
-  ABORT_MODES,
-  COMMON_STATUS_CODES,
-  CONDITION_OPERATORS,
-  CONDITION_SOURCES,
-  ENVELOPES,
-} from '@/lib/constants';
+import { ABORT_MODES, CONDITION_OPERATORS, CONDITION_SOURCES } from '@/lib/constants';
 import { uid } from '@shared/defaults';
-import type { AbortMode, EnvelopeType } from '@shared/types';
 
 function newCondition(): RuleCondition {
   return { id: uid(), source: 'query', key: '', op: 'eq', value: '' };
@@ -34,8 +27,6 @@ interface BasicSettingsProps {
 
 export function BasicSettings({ rule, groups = [], onChange }: BasicSettingsProps) {
   const [openConditions, setOpenConditions] = useState((rule.conditions ?? []).length > 0);
-
-  const updateHeaders = (headers: HeaderEntry[]) => onChange({ headers });
 
   const conditions = rule.conditions ?? [];
   const conditionsEnabled = rule.conditionsEnabled !== false;
@@ -111,129 +102,7 @@ export function BasicSettings({ rule, groups = [], onChange }: BasicSettingsProp
         </div>
       </div>
 
-      <div className="grid grid-cols-[130px_130px_1fr] gap-3">
-        <div>
-          <Label htmlFor="rule-delay" className="flex items-center gap-1">
-            <Timer size={11} /> 延迟 (ms)
-          </Label>
-          <Input
-            id="rule-delay"
-            type="number"
-            min={0}
-            max={60000}
-            value={rule.delayMs}
-            onChange={(event) =>
-              onChange({ delayMs: Math.max(0, Number(event.target.value) || 0) })
-            }
-          />
-        </div>
-        <div>
-          <Label htmlFor="rule-jitter">随机抖动 (ms)</Label>
-          <Input
-            id="rule-jitter"
-            type="number"
-            min={0}
-            max={60000}
-            value={rule.delayJitterMs}
-            onChange={(event) =>
-              onChange({ delayJitterMs: Math.max(0, Number(event.target.value) || 0) })
-            }
-          />
-        </div>
-        <div>
-          <Label htmlFor="rule-status">状态码</Label>
-          <Select
-            id="rule-status"
-            value={String(rule.statusCode)}
-            onChange={(event) => onChange({ statusCode: Number(event.target.value) })}
-            className="w-full font-mono"
-          >
-            {[...new Set([...COMMON_STATUS_CODES, rule.statusCode])]
-              .sort((a, b) => a - b)
-              .map((code) => (
-                <option key={code} value={code}>
-                  {code}
-                </option>
-              ))}
-          </Select>
-        </div>
-      </div>
-
-      <div>
-        <Label>响应头</Label>
-        <div className="space-y-1.5">
-          {rule.headers.map((entry, index) => (
-            <div key={entry.key + index} className="flex items-center gap-2">
-              <Input
-                value={entry.key}
-                placeholder="X-Request-Id"
-                className="font-mono"
-                onChange={(event) =>
-                  updateHeaders(
-                    rule.headers.map((item, i) =>
-                      i === index ? { ...item, key: event.target.value } : item,
-                    ),
-                  )
-                }
-              />
-              <Input
-                value={entry.value}
-                placeholder="value"
-                className="font-mono"
-                onChange={(event) =>
-                  updateHeaders(
-                    rule.headers.map((item, i) =>
-                      i === index ? { ...item, value: event.target.value } : item,
-                    ),
-                  )
-                }
-              />
-              <Button
-                variant="ghost"
-                size="icon"
-                title="删除"
-                onClick={() => updateHeaders(rule.headers.filter((_, i) => i !== index))}
-              >
-                <Trash2 size={13} />
-              </Button>
-            </div>
-          ))}
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => updateHeaders([...rule.headers, { key: '', value: '' }])}
-          >
-            <Plus size={12} /> 添加响应头
-          </Button>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-[1fr_200px_160px_auto] items-end gap-3 border-t border-line pt-3">
-        <div>
-          <Label htmlFor="rule-content-type">Content-Type（留空自动推断）</Label>
-          <Input
-            id="rule-content-type"
-            value={rule.contentType}
-            placeholder="application/json; charset=utf-8"
-            className="font-mono"
-            onChange={(event) => onChange({ contentType: event.target.value })}
-          />
-        </div>
-        <div>
-          <Label htmlFor="rule-envelope">响应信封（仅 JSON / 结构化，JS 响应需自行包装）</Label>
-          <Select
-            id="rule-envelope"
-            value={rule.envelope ?? 'none'}
-            onChange={(event) => onChange({ envelope: event.target.value as EnvelopeType })}
-            className="w-full"
-          >
-            {ENVELOPES.map((item) => (
-              <option key={item.value} value={item.value}>
-                {item.label}
-              </option>
-            ))}
-          </Select>
-        </div>
+      <div className="grid grid-cols-[1fr_auto] items-end gap-3 border-t border-line pt-3">
         <div>
           <Label htmlFor="rule-abort">连接行为</Label>
           <Select
@@ -366,7 +235,7 @@ export function BasicSettings({ rule, groups = [], onChange }: BasicSettingsProp
 
         {conditionsEnabled ? null : (
           <p className="mt-2 text-[11.5px] text-muted-300">
-            已关闭：规则不再检查任何请求条件，所有请求都直接返回上面的响应配置。已填条件会保留，重新打开开关即恢复。
+            已关闭：规则不再检查任何请求条件，所有请求都返回默认响应。已填条件会保留，重新打开开关即恢复。
           </p>
         )}
       </div>

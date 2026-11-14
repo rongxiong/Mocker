@@ -17,7 +17,7 @@ import {
 import { getFile, insertFile, listFiles } from '../db/fileRepo';
 import { allSettings, getSetting, setSetting, SETTING_KEYS } from '../db/settingsRepo';
 import { buildResponse, isTextResponse } from '../services/responder';
-import { applyVariant, resetVariants } from '../services/variants';
+import { resetSequence } from '../services/sequence';
 import { recentLogs, clearLogs } from '../services/logStore';
 import { IMPORTABLE_MODULES } from '../services/jsRunner';
 import { driver, transaction } from '../db';
@@ -35,7 +35,7 @@ import {
   machineUrls,
 } from '../config';
 import { HTTP_METHODS } from '../types';
-import type { MockRule, PreviewResult, UploadedFile } from '../types';
+import type { MockRule, PreviewResult, RuleInput, UploadedFile } from '../types';
 import { uid } from '../defaults';
 
 export const adminRouter = Router();
@@ -57,10 +57,14 @@ adminRouter.put('/settings', (req: Request, res: Response) => {
   res.json({ settings: allSettings() });
 });
 
-adminRouter.post('/variants/reset', (req: Request, res: Response) => {
-  resetVariants(typeof req.body?.ruleId === 'string' ? req.body.ruleId : undefined);
+const resetHandler = (req: Request, res: Response) => {
+  resetSequence(typeof req.body?.ruleId === 'string' ? req.body.ruleId : undefined);
   res.json({ ok: true });
-});
+};
+
+// `/variants/reset` is kept for v2 clients; `/responses/reset` is the v3 name.
+adminRouter.post('/responses/reset', resetHandler);
+adminRouter.post('/variants/reset', resetHandler);
 
 adminRouter.get('/rules/:id', (req: Request, res: Response) => {
   const rule = getRule(String(req.params.id));
@@ -152,13 +156,25 @@ adminRouter.post('/preview', async (req: Request, res: Response) => {
     body: override.body,
   };
 
-  // Mirrors the mock route: with the sequence switch off the variants are
-  // parked, so the preview always shows the plain response config.
-  const variantIndex = rule.variantsEnabled === false ? -1 : Number(override.variantIndex ?? -1);
-  const effectiveRule = variantIndex >= 0 ? applyVariant(rule, variantIndex) : rule;
+  // The preview is an explicit slot picker: any slot, even a disabled one,
+  // can be inspected. v2 `variantIndex` pointed at a variant *after* the base
+  // response, so it maps to responseIndex + 1 (-1 = base).
+  const legacyIndex = Number(override.variantIndex);
+  const rawIndex = Number(
+    override.responseIndex ?? (Number.isFinite(legacyIndex) ? legacyIndex + 1 : 0),
+  );
+  const responseIndex = Math.max(
+    0,
+    Math.min(Number.isFinite(rawIndex) ? Math.trunc(rawIndex) : 0, rule.responses.length - 1),
+  );
 
   try {
-    const output = await buildResponse({ rule: effectiveRule, req: snapshot, skipDelay: true });
+    const output = await buildResponse({
+      rule,
+      responseIndex,
+      req: snapshot,
+      skipDelay: true,
+    });
     const isBinary = Buffer.isBuffer(output.body);
     const preview: PreviewResult = {
       status: output.status,
@@ -194,7 +210,7 @@ adminRouter.get('/export', (req: Request, res: Response) => {
   // hundreds of MB in large libraries. `?files=0` exports rules + settings only.
   const includeFiles = req.query.files !== '0' && req.query.files !== 'false';
   res.json({
-    version: 2,
+    version: 3,
     exportedAt: Date.now(),
     settings: allSettings(),
     rules: listRules(),
@@ -213,7 +229,7 @@ adminRouter.get('/export', (req: Request, res: Response) => {
 adminRouter.post('/import', (req: Request, res: Response) => {
   const payload = req.body ?? {};
   const rules = Array.isArray(payload.rules) ? payload.rules : [];
-  const normalized = rules.map((rule: Partial<MockRule>) => normalizeRule(rule));
+  const normalized = rules.map((rule: RuleInput) => normalizeRule(rule));
 
   // `replace` wipes the table before writing: keep it atomic so a failure
   // half-way through does not lose the previous rule set.

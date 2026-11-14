@@ -62,6 +62,9 @@ const doc = {
   },
 };
 
+/** OpenAPI drafts now carry a full response slot, just like stored rules. */
+const responseAt = (index: number) => importOpenApi(doc).rules[index]?.responses?.[0];
+
 describe('importOpenApi', () => {
   it('creates one rule per path + method', () => {
     const { rules } = importOpenApi(doc);
@@ -79,8 +82,9 @@ describe('importOpenApi', () => {
   });
 
   it('maps schema types to field types and keeps formats', () => {
-    const { rules } = importOpenApi(doc);
-    const fields = Object.fromEntries((rules[0]?.schema ?? []).map((field) => [field.name, field]));
+    const fields = Object.fromEntries(
+      (responseAt(0)?.schema ?? []).map((field) => [field.name, field]),
+    );
     expect(fields.id?.type).toBe('int');
     expect(fields.email?.fakerTemplate).toBe('internet.email');
     expect(fields.status?.type).toBe('enum');
@@ -89,8 +93,9 @@ describe('importOpenApi', () => {
   });
 
   it('marks non-required properties as optional', () => {
-    const { rules } = importOpenApi(doc);
-    const fields = Object.fromEntries((rules[0]?.schema ?? []).map((field) => [field.name, field]));
+    const fields = Object.fromEntries(
+      (responseAt(0)?.schema ?? []).map((field) => [field.name, field]),
+    );
     expect(fields.id?.optional).toBeFalsy();
     expect(fields.email?.optional).toBe(true);
   });
@@ -98,22 +103,20 @@ describe('importOpenApi', () => {
   it('uses tags as the rule group and the success status', () => {
     const { rules } = importOpenApi(doc);
     expect(rules[0]?.group).toBe('用户');
-    expect(rules[2]?.statusCode).toBe(201);
+    expect(responseAt(2)?.statusCode).toBe(201);
   });
 
   it('resolves $ref and root arrays', () => {
-    const { rules } = importOpenApi(doc);
-    expect(rules[1]?.schemaRoot).toBe('array');
-    expect(rules[1]?.schema?.[0]?.item?.children?.map((child) => child.name)).toEqual([
+    expect(responseAt(1)?.schemaRoot).toBe('array');
+    expect(responseAt(1)?.schema?.[0]?.item?.children?.map((child) => child.name)).toEqual([
       'no',
       'amount',
     ]);
   });
 
   it('falls back to example JSON when there is no schema', () => {
-    const { rules } = importOpenApi(doc);
-    expect(rules[2]?.responseType).toBe('json');
-    expect(rules[2]?.body).toContain('"id": 1');
+    expect(responseAt(2)?.responseType).toBe('json');
+    expect(responseAt(2)?.body).toContain('"id": 1');
   });
 
   it('warns on documents without paths', () => {

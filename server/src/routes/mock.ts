@@ -1,9 +1,9 @@
 import { Router } from 'express';
 import type { NextFunction, Request, Response } from 'express';
 import { matchAll } from '../services/matcher';
-import { buildResponse, sleep } from '../services/responder';
+import { buildResponse, delayFor, sleep } from '../services/responder';
 import { hasEffectiveConditions, matchesConditions } from '../services/conditions';
-import { applyVariant, nextVariantIndex } from '../services/variants';
+import { resolveResponseIndex } from '../services/sequence';
 import { recordLog } from '../services/logStore';
 import { getSetting } from '../db/settingsRepo';
 import { MOCK_PREFIX } from '../config';
@@ -229,7 +229,9 @@ mockRouter.use(async (req: Request, res: Response, next: NextFunction) => {
   }
 
   if (match.rule.abort === 'close') {
-    await sleep(match.rule.delayMs);
+    // Connection failures bypass the sequence, but use the same clamped
+    // delay + jitter calculation as a normal response.
+    await sleep(delayFor(match.rule));
     logger.info(`Resetting connection for ${req.method} ${pathname}`);
     recordLog({
       method: req.method,
@@ -246,16 +248,12 @@ mockRouter.use(async (req: Request, res: Response, next: NextFunction) => {
     return;
   }
 
-  // The sequence has its own switch: while it is off every request gets the
-  // plain response body.
-  const variantIndex =
-    match.rule.variantsEnabled === false
-      ? -1
-      : nextVariantIndex(match.rule.id, match.rule.variants?.length ?? 0);
-  const rule = variantIndex >= 0 ? applyVariant(match.rule, variantIndex) : match.rule;
+  // Every response slot is a full config. Disabled slots are skipped; with only
+  // one usable slot requests always get that one.
+  const { index: responseIndex, cycling } = resolveResponseIndex(match.rule);
 
   try {
-    const result = await buildResponse({ rule, req: reqSnapshot });
+    const result = await buildResponse({ rule: match.rule, responseIndex, req: reqSnapshot });
     res.status(result.status);
     for (const [key, value] of Object.entries(result.headers)) {
       res.setHeader(key, value);
@@ -264,7 +262,7 @@ mockRouter.use(async (req: Request, res: Response, next: NextFunction) => {
       method: req.method,
       path: pathname,
       ruleId: match.rule.id,
-      ruleName: variantIndex >= 0 ? `${match.rule.name} #${variantIndex + 1}` : match.rule.name,
+      ruleName: cycling ? `${match.rule.name} #${responseIndex + 1}` : match.rule.name,
       status: result.status,
       durationMs: result.durationMs,
       matched: true,

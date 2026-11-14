@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import type { MockRule, RuleConflict } from '@shared/types';
 import { TopBar } from '@/components/TopBar';
@@ -94,7 +94,9 @@ export default function App() {
     }
   };
 
-  const handleSave = async (rule: MockRule) => {
+  // Stable reference: auto-save's timer must not be restarted by unrelated
+  // App re-renders while the user is waiting for the 1.2s debounce.
+  const handleSave = useCallback(async (rule: MockRule) => {
     setSaving(true);
     try {
       const saved = await api.updateRule(rule.id, rule);
@@ -106,7 +108,7 @@ export default function App() {
     } finally {
       setSaving(false);
     }
-  };
+  }, []);
 
   const handleDelete = async (rule: MockRule) => {
     try {
@@ -223,7 +225,7 @@ export default function App() {
                 onDelete={setPendingDelete}
                 onDuplicate={(rule) => void handleDuplicate(rule)}
                 onToggle={(rule, enabled) => void handleToggle(rule, enabled)}
-                onSave={(rule) => void handleSave(rule)}
+                onSave={handleSave}
               />
             ) : null}
             {view === 'files' ? <FilesPage /> : null}

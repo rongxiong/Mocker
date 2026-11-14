@@ -71,13 +71,38 @@ export interface RuleCondition {
   value: string;
 }
 
-export interface ResponseVariant {
-  id: string;
-  label: string;
-  /** empty string means "inherit from the rule" */
-  statusCode: string;
-  delayMs: string;
+/** Everything that makes up one HTTP response. Each sequence slot owns a full copy. */
+export interface ResponseConfig {
+  statusCode: number;
+  headers: HeaderEntry[];
+  contentType: string;
+  responseType: ResponseType;
   body: string;
+  fileId: string;
+  schema: SchemaField[];
+  schemaRoot: SchemaRootType;
+  schemaRootMin: number;
+  schemaRootMax: number;
+  delayMs: number;
+  delayJitterMs: number;
+  envelope: EnvelopeType;
+}
+
+export interface ResponseEntry extends ResponseConfig {
+  id: string;
+  /** optional human-readable note, e.g. "首次成功" */
+  label: string;
+  /** when false the slot is kept but skipped by real requests */
+  enabled: boolean;
+}
+
+/** A v2 backup's sequence entry: only three overrides, empty means "inherit". */
+export interface LegacyVariant {
+  id?: string;
+  label?: string;
+  statusCode?: string;
+  delayMs?: string;
+  body?: string;
 }
 
 export interface RuleConflict {
@@ -97,33 +122,28 @@ export interface MockRule {
   description: string;
   /** free-form tag used to group rules in the console */
   group: string;
-  delayMs: number;
-  delayJitterMs: number;
-  statusCode: number;
-  headers: HeaderEntry[];
-  contentType: string;
-  responseType: ResponseType;
-  body: string;
-  fileId: string;
-  schema: SchemaField[];
-  /** shape of the generated root value in `schema` mode */
-  schemaRoot: SchemaRootType;
-  schemaRootMin: number;
-  schemaRootMax: number;
   /** when off, `conditions` are kept but ignored, so the rule is a catch-all */
   conditionsEnabled: boolean;
   /** all conditions must match for the rule to be used */
   conditions: RuleCondition[];
-  /** when off, `variants` are kept but ignored, so every request gets `body` */
-  variantsEnabled: boolean;
-  /** when non-empty, requests cycle through these overrides */
-  variants: ResponseVariant[];
   abort: AbortMode;
-  /** wraps JSON / structured responses in a common envelope */
-  envelope: EnvelopeType;
+  /** at least one entry; index 0 is the default response */
+  responses: ResponseEntry[];
   createdAt: number;
   updatedAt: number;
 }
+
+/**
+ * Shape accepted by `createDefaultRule`, `normalizeRule` and legacy PUT payloads:
+ * the new model plus the flat response fields / `variants` used by v2 backups.
+ */
+export type RuleInput = Partial<MockRule> &
+  Partial<ResponseConfig> & {
+    variants?: LegacyVariant[];
+    variantsEnabled?: boolean;
+    /** early-v3 master switch, kept as an import/PUT alias for `variantsEnabled` */
+    sequenceEnabled?: boolean;
+  };
 
 export interface UploadedFile {
   id: string;

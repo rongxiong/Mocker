@@ -10,6 +10,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import type { MockRule, RuleConflict } from '@shared/types';
+import { primaryResponse } from '@shared/defaults';
 import { Button } from './ui/button';
 import { Input, Select } from './ui/input';
 import { Switch } from './ui/switch';
@@ -89,6 +90,8 @@ export function RuleList({
 
   const renderRule = (rule: MockRule) => {
     const active = rule.id === selectedId;
+    const first = primaryResponse(rule);
+    const enabledCount = rule.responses.filter((item) => item.enabled !== false).length;
     return (
       <li key={rule.id}>
         <div
@@ -129,12 +132,17 @@ export function RuleList({
           <div className="mt-2 flex items-center justify-between">
             <div className="flex items-center gap-1.5 text-[10.5px] text-muted-300">
               <span className="rounded border border-line px-1 py-[1px]">
-                {TYPE_LABEL.get(rule.responseType) ?? rule.responseType}
+                {TYPE_LABEL.get(first.responseType) ?? first.responseType}
               </span>
-              {rule.delayMs > 0 || rule.delayJitterMs > 0 ? (
+              {rule.responses.length > 1 ? (
+                <span className="rounded border border-accent-400/30 bg-accent-400/10 px-1 py-[1px] text-accent-300">
+                  {enabledCount === 0 ? '全部停用' : `${enabledCount}/${rule.responses.length} 档`}
+                </span>
+              ) : null}
+              {first.delayMs > 0 || first.delayJitterMs > 0 ? (
                 <span className="rounded border border-amber-400/25 bg-amber-400/10 px-1 py-[1px] text-amber-300">
-                  {rule.delayMs}
-                  {rule.delayJitterMs > 0 ? `+${rule.delayJitterMs}` : ''}ms
+                  {first.delayMs}
+                  {first.delayJitterMs > 0 ? `+${first.delayJitterMs}` : ''}ms
                 </span>
               ) : null}
             </div>

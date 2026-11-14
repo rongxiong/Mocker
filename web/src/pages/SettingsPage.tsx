@@ -200,7 +200,7 @@ export function SettingsPage({
         <div className="glass rounded-2xl p-4 lg:col-span-2">
           <div className="mb-3 flex items-center justify-between">
             <p className="panel-title flex items-center gap-1.5">
-              <Activity size={13} /> 最近请求（保留 100 条）
+              <Activity size={13} /> 最近请求（保留 200 条）
             </p>
             <div className="flex items-center gap-1">
               <Button variant="ghost" size="icon" title="刷新" onClick={loadLogs}>
@@ -331,7 +331,7 @@ export function SettingsPage({
                     <td className="px-2 py-1.5 text-muted-100">{rule.path}</td>
                     <td className="px-2 py-1.5 text-muted-300">{rule.group || '—'}</td>
                     <td className="px-2 py-1.5 text-brand-200">
-                      {rule.responseType === 'schema' ? 'schema' : 'json'}
+                      {rule.responses?.[0]?.responseType === 'schema' ? 'schema' : 'json'}
                     </td>
                   </tr>
                 ))}

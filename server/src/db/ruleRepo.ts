@@ -1,21 +1,23 @@
 import { all, get, run } from './index';
 import type {
   AbortMode,
-  EnvelopeType,
-  HeaderEntry,
   HttpMethod,
   MockRule,
-  ResponseType,
+  ResponseEntry,
   RuleCondition,
-  ResponseVariant,
   RuleConflict,
-  SchemaField,
-  SchemaRootType,
+  RuleInput,
 } from '../types';
-import { createDefaultRule, uid } from '../defaults';
+import {
+  coerceRulePatch,
+  normalizeResponses,
+  normalizeRule as normalizeRuleInput,
+} from '../defaults';
 import { hasEffectiveConditions } from '../services/conditions';
 import { normalizePath } from '../pathUtils';
 import { transaction } from './index';
+
+export { normalizeRuleInput as normalizeRule };
 
 interface RuleRow {
   id: string;
@@ -24,25 +26,11 @@ interface RuleRow {
   path: string;
   enabled: number;
   description: string;
-  delay_ms: number;
-  delay_jitter_ms: number;
-  status_code: number;
-  headers: string;
-  content_type: string;
-  response_type: string;
-  body: string;
-  file_id: string;
-  schema_json: string | null;
-  schema_root: string;
-  schema_root_min: number;
-  schema_root_max: number;
   conditions: string;
   conditions_enabled: number;
-  variants: string;
-  variants_enabled: number;
   abort: string;
-  envelope: string;
   group_name: string;
+  responses: string;
   created_at: number;
   updated_at: number;
 }
@@ -64,24 +52,10 @@ function rowToRule(row: RuleRow): MockRule {
     path: row.path,
     enabled: row.enabled === 1,
     description: row.description ?? '',
-    delayMs: Number(row.delay_ms ?? 0),
-    delayJitterMs: Number(row.delay_jitter_ms ?? 0),
-    statusCode: Number(row.status_code ?? 200),
-    headers: parseJson<HeaderEntry[]>(row.headers, []),
-    contentType: row.content_type ?? '',
-    responseType: row.response_type as ResponseType,
-    body: row.body ?? '',
-    fileId: row.file_id ?? '',
-    schema: parseJson<SchemaField[]>(row.schema_json, []),
-    schemaRoot: (row.schema_root ?? 'object') as SchemaRootType,
-    schemaRootMin: Number(row.schema_root_min ?? 2),
-    schemaRootMax: Number(row.schema_root_max ?? 5),
     conditionsEnabled: row.conditions_enabled !== 0,
     conditions: parseJson<RuleCondition[]>(row.conditions, []),
-    variantsEnabled: row.variants_enabled !== 0,
-    variants: parseJson<ResponseVariant[]>(row.variants, []),
     abort: (row.abort ?? 'none') as AbortMode,
-    envelope: (row.envelope ?? 'none') as EnvelopeType,
+    responses: normalizeResponses(parseJson<ResponseEntry[]>(row.responses, [])),
     group: row.group_name ?? '',
     createdAt: Number(row.created_at ?? 0),
     updatedAt: Number(row.updated_at ?? 0),
@@ -89,10 +63,8 @@ function rowToRule(row: RuleRow): MockRule {
 }
 
 const SELECT = 'SELECT * FROM rules';
-const FIELDS = `id, name, method, path, enabled, description, delay_ms, delay_jitter_ms,
-  status_code, headers, content_type, response_type, body, file_id, schema_json,
-  schema_root, schema_root_min, schema_root_max, conditions, conditions_enabled, variants,
-  variants_enabled, abort, envelope, group_name, created_at, updated_at`;
+const FIELDS = `id, name, method, path, enabled, description, conditions, conditions_enabled,
+  abort, responses, group_name, created_at, updated_at`;
 
 function valuesOf(rule: MockRule): unknown[] {
   return [
@@ -100,26 +72,12 @@ function valuesOf(rule: MockRule): unknown[] {
     rule.name,
     rule.method,
     rule.path,
-    rule.enabled,
+    rule.enabled ? 1 : 0,
     rule.description,
-    rule.delayMs,
-    rule.delayJitterMs,
-    rule.statusCode,
-    JSON.stringify(rule.headers ?? []),
-    rule.contentType ?? '',
-    rule.responseType,
-    rule.body ?? '',
-    rule.fileId ?? '',
-    JSON.stringify(rule.schema ?? []),
-    rule.schemaRoot ?? 'object',
-    rule.schemaRootMin ?? 2,
-    rule.schemaRootMax ?? 5,
     JSON.stringify(rule.conditions ?? []),
     rule.conditionsEnabled === false ? 0 : 1,
-    JSON.stringify(rule.variants ?? []),
-    rule.variantsEnabled === false ? 0 : 1,
     rule.abort ?? 'none',
-    rule.envelope ?? 'none',
+    JSON.stringify(normalizeResponses(rule.responses)),
     rule.group ?? '',
     rule.createdAt,
     rule.updatedAt,
@@ -167,39 +125,28 @@ export function insertRule(rule: MockRule): MockRule {
   return rule;
 }
 
-export function updateRule(id: string, patch: Partial<MockRule>): MockRule | undefined {
+export function updateRule(id: string, patch: RuleInput): MockRule | undefined {
   const current = getRule(id);
   if (!current) return undefined;
-  const next: MockRule = { ...current, ...patch, id: current.id, updatedAt: Date.now() };
+  const next: MockRule = {
+    ...current,
+    ...coerceRulePatch(patch, current),
+    id: current.id,
+    updatedAt: Date.now(),
+  };
   run(
-    `UPDATE rules SET name=?, method=?, path=?, enabled=?, description=?, delay_ms=?, delay_jitter_ms=?,
-      status_code=?, headers=?, content_type=?, response_type=?, body=?, file_id=?, schema_json=?,
-      schema_root=?, schema_root_min=?, schema_root_max=?, conditions=?, conditions_enabled=?,
-      variants=?, variants_enabled=?, abort=?, envelope=?, group_name=?, updated_at=?
+    `UPDATE rules SET name=?, method=?, path=?, enabled=?, description=?, conditions=?,
+      conditions_enabled=?, abort=?, responses=?, group_name=?, updated_at=?
      WHERE id=?`,
     next.name,
     next.method,
     next.path,
-    next.enabled,
+    next.enabled ? 1 : 0,
     next.description,
-    next.delayMs,
-    next.delayJitterMs,
-    next.statusCode,
-    JSON.stringify(next.headers ?? []),
-    next.contentType ?? '',
-    next.responseType,
-    next.body ?? '',
-    next.fileId ?? '',
-    JSON.stringify(next.schema ?? []),
-    next.schemaRoot ?? 'object',
-    next.schemaRootMin ?? 2,
-    next.schemaRootMax ?? 5,
     JSON.stringify(next.conditions ?? []),
     next.conditionsEnabled === false ? 0 : 1,
-    JSON.stringify(next.variants ?? []),
-    next.variantsEnabled === false ? 0 : 1,
     next.abort ?? 'none',
-    next.envelope ?? 'none',
+    JSON.stringify(normalizeResponses(next.responses)),
     next.group ?? '',
     next.updatedAt,
     id,
@@ -244,54 +191,8 @@ export function insertMany(rules: MockRule[]): InsertManyResult {
   return { inserted: rules.length - updated, updated };
 }
 
-function text(value: unknown): string {
-  return typeof value === 'string' ? value : '';
-}
-
-/** Imported variants may miss fields entirely; fill them so `applyVariant` is safe. */
-function normalizeVariant(input: unknown, index: number): ResponseVariant {
-  const source = (input ?? {}) as Partial<ResponseVariant>;
-  return {
-    id: text(source.id) || uid(),
-    label: text(source.label) || `Variant ${index + 1}`,
-    statusCode: text(source.statusCode),
-    delayMs: text(source.delayMs),
-    body: text(source.body),
-  };
-}
-
-function toNumber(value: unknown, fallback: number): number {
-  if (value === undefined || value === null || value === '') return fallback;
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : fallback;
-}
-
-/** Imported rules are normalised so partially-defined payloads stay usable. */
-export function normalizeRule(input: Partial<MockRule>): MockRule {
-  const base = createDefaultRule();
-  return {
-    ...base,
-    ...input,
-    id: input.id ?? base.id,
-    statusCode: toNumber(input.statusCode, base.statusCode),
-    delayMs: toNumber(input.delayMs, base.delayMs),
-    delayJitterMs: toNumber(input.delayJitterMs, base.delayJitterMs),
-    headers: Array.isArray(input.headers) ? input.headers : [],
-    schema: Array.isArray(input.schema) ? input.schema : base.schema,
-    conditionsEnabled: input.conditionsEnabled ?? true,
-    conditions: Array.isArray(input.conditions) ? input.conditions : [],
-    variantsEnabled: input.variantsEnabled ?? true,
-    variants: Array.isArray(input.variants) ? input.variants.map(normalizeVariant) : [],
-    schemaRoot: input.schemaRoot ?? 'object',
-    schemaRootMin: toNumber(input.schemaRootMin, 2),
-    schemaRootMax: toNumber(input.schemaRootMax, 5),
-    abort: input.abort ?? 'none',
-    envelope: input.envelope ?? 'none',
-    group: input.group ?? '',
-    createdAt: input.createdAt ?? Date.now(),
-    updatedAt: Date.now(),
-  };
-}
+// `normalizeRule` lives in `defaults.ts` (pure model logic, no DB dependency)
+// and is re-exported here so the admin routes keep their existing import.
 
 let version = 0;
 

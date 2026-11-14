@@ -123,7 +123,7 @@ export function TopBar({
           })}
         </nav>
 
-        <div className="ml-auto flex items-center gap-2">
+        <div className="ml-auto flex items-center gap-5">
           <label
             className="hidden cursor-pointer items-center gap-1.5 text-[11.5px] text-muted-300 lg:flex"
             title="停止编辑 1.2 秒后自动保存（也可用 Cmd/Ctrl+S）"
@@ -152,11 +152,16 @@ export function TopBar({
               event.target.value = '';
             }}
           />
-          <Button variant="ghost" size="md" onClick={() => fileInput.current?.click()}>
+          <Button
+            variant="ghost"
+            size="md"
+            className="px-0"
+            onClick={() => fileInput.current?.click()}
+          >
             <Upload size={14} />
             导入
           </Button>
-          <Button variant="ghost" size="md" onClick={onExport}>
+          <Button variant="ghost" size="md" className="px-0" onClick={onExport}>
             <Download size={14} />
             导出
           </Button>

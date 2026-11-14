@@ -1,29 +1,16 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import {
-  AlertTriangle,
-  Check,
-  Copy,
-  FileCode2,
-  Info,
-  Link2,
-  Save,
-  Terminal,
-  Trash2,
-  Upload,
-  Wand2,
-} from 'lucide-react';
-import type { MockRule, ResponseType, RuleConflict, UploadedFile } from '@shared/types';
+import { useEffect, useMemo, useState } from 'react';
+import { AlertTriangle, Copy, Link2, Plus, RotateCcw, Save, Terminal, Trash2 } from 'lucide-react';
+import type { MockRule, ResponseEntry, RuleConflict } from '@shared/types';
 import { Button } from './ui/button';
-import { Tabs } from './ui/tabs';
-import { LazyCodeEditor as CodeEditor } from './LazyCodeEditor';
+import { Input } from './ui/input';
+import { Switch } from './ui/switch';
 import { BasicSettings } from './BasicSettings';
-import { AdvancedSettings } from './AdvancedSettings';
-import { SchemaEditor } from './SchemaEditor';
-import { Select } from './ui/input';
-import { RESPONSE_TYPES, bodyForType } from '@/lib/constants';
+import { ResponseEditor } from './ResponseEditor';
 import { api } from '@/lib/api';
-import { buildHttpie, copyText, isValidJson } from '@/lib/utils';
+import { buildHttpie, cn, copyText, isValidJson } from '@/lib/utils';
 import { toast } from './ui/toast';
+import { createResponseEntry, uid } from '@shared/defaults';
+import { nextActiveIndex, removeSlot } from '@/lib/responseSlots';
 
 interface RuleEditorProps {
   rule: MockRule;
@@ -48,26 +35,63 @@ export function RuleEditor({
   onSave,
   onDelete,
 }: RuleEditorProps) {
-  const [files, setFiles] = useState<UploadedFile[]>([]);
-  const fileInput = useRef<HTMLInputElement>(null);
-
-  const loadFiles = () => {
-    api
-      .listFiles()
-      .then(setFiles)
-      .catch(() => setFiles([]));
-  };
-
-  useEffect(() => {
-    if (rule.responseType === 'file') loadFiles();
-  }, [rule.responseType]);
+  const [activeIndex, setActiveIndex] = useState(0);
+  useEffect(() => setActiveIndex(0), [rule.id]);
 
   const url = useMemo(
     () => `${baseUrl}${rule.path.startsWith('/') ? rule.path : `/${rule.path}`}`,
     [baseUrl, rule.path],
   );
 
-  const jsonOk = rule.responseType !== 'json' || isValidJson(rule.body);
+  const responses = rule.responses ?? [];
+  const index = Math.min(activeIndex, Math.max(0, responses.length - 1));
+  const active: ResponseEntry = responses[index] ?? createResponseEntry();
+  const multiple = responses.length > 1;
+  const enabledCount = responses.filter((item) => item.enabled !== false).length;
+  const cycling = enabledCount > 1;
+  const hint =
+    enabledCount === 0
+      ? '全部档位已停用：仍返回第 1 档作为兜底。'
+      : !multiple
+        ? '每档都是完整响应配置；添加响应即可组成序列。'
+        : !cycling
+          ? '只有 1 档启用：每次请求都固定返回这一档，不轮询。'
+          : enabledCount < responses.length
+            ? `已启用 ${enabledCount}/${responses.length} 档；停用档跳过轮询、配置保留，其余按顺序循环返回。`
+            : '每档都是完整配置；按顺序循环返回第 1、2、3… 档，然后重复。';
+
+  const patchResponse = (target: number, patch: Partial<ResponseEntry>) =>
+    onChange({
+      responses: responses.map((item, position) =>
+        position === target ? { ...item, ...patch } : item,
+      ),
+    });
+
+  const addResponse = () => {
+    const copy: ResponseEntry = {
+      ...active,
+      id: uid(),
+      label: '',
+      enabled: true,
+      headers: active.headers.map((header) => ({ ...header })),
+      schema: structuredClone(active.schema),
+    };
+    onChange({ responses: [...responses, copy] });
+    setActiveIndex(responses.length);
+  };
+
+  const removeResponse = (target: number) => {
+    const next = removeSlot(responses, target);
+    if (next === responses) return;
+    onChange({ responses: next });
+    setActiveIndex((current) => nextActiveIndex(current, target, responses.length));
+  };
+
+  // A disabled slot is never served; half-written JSON there must not block
+  // saving the rest of the rule.
+  const jsonOk = responses.every(
+    (item) => item.enabled === false || item.responseType !== 'json' || isValidJson(item.body),
+  );
 
   return (
     <section className="flex h-full min-w-0 flex-1 flex-col">
@@ -103,7 +127,7 @@ export function RuleEditor({
             size="md"
             title="复制 HTTPie 命令"
             onClick={() => {
-              // rule.headers / rule.body 是响应头和响应体，不能作为请求内容拼进命令
+              // 响应头/响应体是返回给客户端的内容，不能作为请求内容拼进命令
               copyText(buildHttpie({ method: rule.method, url }));
               toast('已复制 HTTPie 命令', 'info');
             }}
@@ -141,149 +165,98 @@ export function RuleEditor({
         </div>
 
         <div className="glass mt-4 rounded-2xl p-4">
-          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-            <p className="panel-title">响应配置</p>
-            <Tabs
-              value={rule.responseType}
-              onChange={(value: ResponseType) =>
-                onChange({
-                  responseType: value,
-                  body: bodyForType(rule.responseType, value, rule.body),
-                })
-              }
-              items={RESPONSE_TYPES.map((item) => ({
-                value: item.value,
-                label: item.label,
-                hint: item.hint,
-              }))}
-            />
+          <div className="mb-3 flex flex-wrap items-center gap-2">
+            <div className="flex items-center gap-2">
+              <p className="panel-title">响应</p>
+              <span className="rounded-md bg-brand-500/20 px-1.5 text-[10.5px] text-brand-200">
+                {enabledCount === responses.length
+                  ? `${responses.length} 档`
+                  : `${enabledCount}/${responses.length} 档启用`}
+              </span>
+            </div>
           </div>
 
-          <p className="mb-3 flex items-center gap-1.5 text-[11.5px] text-muted-300">
-            <Info size={12} />
-            {RESPONSE_TYPES.find((item) => item.value === rule.responseType)?.hint}
+          <div className="mb-3 flex flex-wrap items-center gap-1.5 border-b border-line pb-3">
+            {responses.map((item, position) => {
+              const enabled = item.enabled !== false;
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  title={`${item.label || `第 ${position + 1} 档响应`}${enabled ? '' : '（已停用）'}`}
+                  onClick={() => setActiveIndex(position)}
+                  className={cn(
+                    'cursor-pointer rounded-md border px-2 py-1 text-[11px] transition-colors',
+                    position === index
+                      ? 'border-brand-500/50 bg-brand-500/20 text-fg'
+                      : 'border-line text-muted-300 hover:text-muted-100',
+                    !enabled && 'opacity-55 line-through',
+                  )}
+                >
+                  #{position + 1}
+                  {position === 0 ? ' 默认' : ''}
+                  {item.label ? ` ${item.label}` : ''}
+                </button>
+              );
+            })}
+            <Button variant="ghost" size="sm" onClick={addResponse}>
+              <Plus size={12} /> 添加响应
+            </Button>
+            {multiple ? (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  api
+                    .resetSequence(rule.id)
+                    .then(() => toast('序列计数已重置', 'info'))
+                    .catch(() => toast('重置失败', 'error'));
+                }}
+              >
+                <RotateCcw size={12} /> 重置计数
+              </Button>
+            ) : null}
+          </div>
+
+          <div className="mb-2 flex flex-wrap items-center gap-2">
+            <div className="flex items-center gap-1.5">
+              <Switch
+                title={active.enabled === false ? '启用该档' : '停用该档（配置保留）'}
+                aria-label="当前档启用开关"
+                checked={active.enabled !== false}
+                onCheckedChange={(value) => patchResponse(index, { enabled: value })}
+              />
+              <span className="text-[11px] text-muted-200">启用该档</span>
+            </div>
+            {multiple ? (
+              <Button
+                variant="ghost"
+                size="sm"
+                title={index === 0 ? '删除默认档（下一档自动成为默认）' : '删除该档响应'}
+                onClick={() => removeResponse(index)}
+              >
+                <Trash2 size={12} /> 删除该档
+              </Button>
+            ) : null}
+            <span className="ml-2 text-[11px] uppercase tracking-wider text-muted-300">备注</span>
+            <Input
+              value={active.label}
+              placeholder="如：首次成功 / 再次失败"
+              className="h-7 max-w-[280px]"
+              onChange={(event) => patchResponse(index, { label: event.target.value })}
+            />
+          </div>
+          <p className="mb-3 text-[11px] text-muted-300">
+            {hint}
+            {multiple ? ' 任意档可删；删掉默认档后下一档自动成为默认。' : ''}
           </p>
 
-          {rule.responseType === 'json' ? (
-            <div className="space-y-2">
-              <CodeEditor
-                value={rule.body}
-                language="json"
-                height="360px"
-                onChange={(value) => onChange({ body: value })}
-              />
-              <div className="flex items-center gap-2 text-[11.5px]">
-                {jsonOk ? (
-                  <span className="flex items-center gap-1 text-emerald-300">
-                    <Check size={12} /> JSON 合法
-                  </span>
-                ) : (
-                  <span className="text-rose-300">JSON 解析失败，保存后仍会原样返回</span>
-                )}
-              </div>
-            </div>
-          ) : null}
-
-          {rule.responseType === 'html' ? (
-            <CodeEditor
-              value={rule.body}
-              language="html"
-              height="360px"
-              onChange={(value) => onChange({ body: value })}
-            />
-          ) : null}
-
-          {rule.responseType === 'javascript' ? (
-            <div className="space-y-2">
-              <CodeEditor
-                value={rule.body}
-                language="javascript"
-                height="360px"
-                onChange={(value) => onChange({ body: value })}
-              />
-              <div className="flex flex-wrap items-center gap-2 rounded-xl border border-brand-500/20 bg-brand-500/[0.07] px-3 py-2 text-[11.5px] text-muted-200">
-                <Wand2 size={12} className="text-brand-300" />
-                <span>
-                  可用变量：<code className="font-mono text-brand-200">req</code>（method / path /
-                  params / query / headers / cookies / body）、
-                  <code className="font-mono text-brand-200">console</code>、
-                  <code className="font-mono text-brand-200">faker</code>、
-                  <code className="font-mono text-brand-200">RandExp</code>、
-                  <code className="font-mono text-brand-200">uuid()</code>、
-                  <code className="font-mono text-brand-200">require()</code>
-                </span>
-                <span className="text-muted-300">
-                  require 白名单：faker, randexp, uuid, path, url, util, crypto, querystring
-                </span>
-              </div>
-            </div>
-          ) : null}
-
-          {rule.responseType === 'schema' ? (
-            <SchemaEditor
-              fields={rule.schema ?? []}
-              onChange={(schema) => onChange({ schema })}
-              root={rule.schemaRoot ?? 'object'}
-              rootMin={rule.schemaRootMin ?? 2}
-              rootMax={rule.schemaRootMax ?? 5}
-              onRootChange={(patch) => onChange(patch)}
-            />
-          ) : null}
-
-          {rule.responseType === 'file' ? (
-            <div className="space-y-3">
-              <div className="flex items-center gap-2">
-                <Select
-                  value={rule.fileId}
-                  className="w-full max-w-[420px]"
-                  onChange={(event) => onChange({ fileId: event.target.value })}
-                >
-                  <option value="">选择一个文件…</option>
-                  {files.map((file) => (
-                    <option key={file.id} value={file.id}>
-                      {file.name} · {file.mime}
-                    </option>
-                  ))}
-                </Select>
-                <input
-                  ref={fileInput}
-                  type="file"
-                  className="hidden"
-                  onChange={(event) => {
-                    const file = event.target.files?.[0];
-                    if (file) {
-                      api
-                        .uploadFile(file)
-                        .then((uploaded) => {
-                          onChange({ fileId: uploaded.id });
-                          loadFiles();
-                          toast(`已上传 ${uploaded.name}`, 'success');
-                        })
-                        .catch(() => toast('上传失败', 'error'));
-                    }
-                    event.target.value = '';
-                  }}
-                />
-                <Button variant="secondary" size="md" onClick={() => fileInput.current?.click()}>
-                  <Upload size={13} />
-                  上传文件
-                </Button>
-              </div>
-              {rule.fileId ? (
-                <p className="text-[11.5px] text-muted-300">
-                  将按文件扩展名自动推断 Content-Type；可到「文件库」页面下载或替换。
-                </p>
-              ) : (
-                <div className="flex items-center gap-2 rounded-xl border border-line bg-ink-900/50 p-4 text-[12px] text-muted-300">
-                  <FileCode2 size={15} />
-                  还没有选择文件，上传后即可作为响应体返回（支持二进制）。
-                </div>
-              )}
-            </div>
-          ) : null}
+          <ResponseEditor
+            key={active.id}
+            response={active}
+            onChange={(patch) => patchResponse(index, patch)}
+          />
         </div>
-
-        <AdvancedSettings rule={rule} onChange={onChange} />
       </div>
     </section>
   );

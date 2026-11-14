@@ -1,4 +1,16 @@
-import type { HeaderEntry, MockRule, ResponseType, SchemaField, SchemaFieldType } from './types';
+import { HTTP_METHODS } from './types';
+import type {
+  AbortMode,
+  EnvelopeType,
+  LegacyVariant,
+  MockRule,
+  ResponseConfig,
+  ResponseEntry,
+  ResponseType,
+  RuleInput,
+  SchemaField,
+  SchemaFieldType,
+} from './types';
 
 export function uid(): string {
   const c = globalThis.crypto;
@@ -112,20 +124,71 @@ export function defaultSchema(): SchemaField[] {
   ];
 }
 
-export function createDefaultRule(overrides: Partial<MockRule> = {}): MockRule {
-  const now = Date.now();
+const RESPONSE_TYPES: ResponseType[] = ['json', 'html', 'file', 'javascript', 'schema'];
+const ENVELOPES: EnvelopeType[] = ['none', 'codeData', 'codeMessageData'];
+const ABORTS: AbortMode[] = ['none', 'close', 'hang'];
+const RESPONSE_KEYS: (keyof ResponseConfig)[] = [
+  'statusCode',
+  'headers',
+  'contentType',
+  'responseType',
+  'body',
+  'fileId',
+  'schema',
+  'schemaRoot',
+  'schemaRootMin',
+  'schemaRootMax',
+  'delayMs',
+  'delayJitterMs',
+  'envelope',
+];
+const RULE_KEYS = [
+  'id',
+  'name',
+  'method',
+  'path',
+  'enabled',
+  'description',
+  'group',
+  'conditionsEnabled',
+  'conditions',
+  'abort',
+  'createdAt',
+  'updatedAt',
+] as const;
+
+/** PUT patches must never let a client rewrite identity or creation time. */
+const PATCH_KEYS = RULE_KEYS.filter(
+  (key) => key !== 'id' && key !== 'createdAt' && key !== 'updatedAt',
+);
+
+function text(value: unknown): string {
+  return typeof value === 'string' ? value : '';
+}
+
+function toNumber(value: unknown, fallback: number): number {
+  if (value === undefined || value === null || value === '') return fallback;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function oneOf<T extends string>(value: unknown, allowed: T[], fallback: T): T {
+  return allowed.includes(value as T) ? (value as T) : fallback;
+}
+
+function fieldsOf(source: RuleInput, keys: readonly string[]): Record<string, unknown> {
+  const result: Record<string, unknown> = {};
+  const raw = source as unknown as Record<string, unknown>;
+  for (const key of keys) {
+    if (raw[key] !== undefined) result[key] = raw[key];
+  }
+  return result;
+}
+
+export function createDefaultResponse(): ResponseConfig {
   return {
-    id: uid(),
-    name: 'New API',
-    method: 'GET',
-    path: '/api/example',
-    enabled: true,
-    description: '',
-    group: '',
-    delayMs: 0,
-    delayJitterMs: 0,
     statusCode: 200,
-    headers: [] as HeaderEntry[],
+    headers: [],
     contentType: '',
     responseType: 'json',
     body: SAMPLE_JSON,
@@ -134,14 +197,217 @@ export function createDefaultRule(overrides: Partial<MockRule> = {}): MockRule {
     schemaRoot: 'object',
     schemaRootMin: 2,
     schemaRootMax: 5,
+    delayMs: 0,
+    delayJitterMs: 0,
+    envelope: 'none',
+  };
+}
+
+/** Fills every field so a partially written / imported slot is always usable. */
+export function normalizeResponse(
+  input: unknown,
+  fallback: ResponseConfig = createDefaultResponse(),
+): ResponseEntry {
+  const source = (input ?? {}) as Partial<ResponseEntry>;
+  const enabledRaw: unknown = source.enabled;
+  const fallbackEnabled = (fallback as Partial<ResponseEntry>).enabled;
+  const enabled =
+    enabledRaw === undefined
+      ? fallbackEnabled !== false
+      : enabledRaw !== false && enabledRaw !== 0 && enabledRaw !== null && enabledRaw !== 'false';
+  return {
+    statusCode: toNumber(source.statusCode, fallback.statusCode),
+    headers: Array.isArray(source.headers) ? source.headers : fallback.headers,
+    contentType: typeof source.contentType === 'string' ? source.contentType : fallback.contentType,
+    responseType: oneOf(source.responseType, RESPONSE_TYPES, fallback.responseType),
+    body: typeof source.body === 'string' ? source.body : fallback.body,
+    fileId: typeof source.fileId === 'string' ? source.fileId : fallback.fileId,
+    schema: Array.isArray(source.schema) ? source.schema : fallback.schema,
+    schemaRoot:
+      source.schemaRoot === 'object' || source.schemaRoot === 'array'
+        ? source.schemaRoot
+        : fallback.schemaRoot,
+    schemaRootMin: toNumber(source.schemaRootMin, fallback.schemaRootMin),
+    schemaRootMax: toNumber(source.schemaRootMax, fallback.schemaRootMax),
+    delayMs: toNumber(source.delayMs, fallback.delayMs),
+    delayJitterMs: toNumber(source.delayJitterMs, fallback.delayJitterMs),
+    envelope: oneOf(source.envelope, ENVELOPES, fallback.envelope),
+    id: text(source.id) || uid(),
+    label: text(source.label),
+    enabled,
+  };
+}
+
+export function createResponseEntry(overrides: Partial<ResponseEntry> = {}): ResponseEntry {
+  return normalizeResponse(overrides, createDefaultResponse());
+}
+
+/** A rule always has at least one response. */
+export function normalizeResponses(
+  input: unknown,
+  fallback: ResponseConfig = createDefaultResponse(),
+): ResponseEntry[] {
+  const list = Array.isArray(input) ? input : [];
+  if (list.length === 0) return [normalizeResponse({}, fallback)];
+  return list.map((item) => normalizeResponse(item, fallback));
+}
+
+/**
+ * v2 sequence entries only overrode three fields; expand them into full slots
+ * using the (possibly overridden) base response for everything else.
+ */
+function expandLegacyVariant(
+  variant: LegacyVariant,
+  base: ResponseConfig,
+  index: number,
+  enabled: boolean,
+): ResponseEntry {
+  const source = (variant ?? {}) as LegacyVariant;
+  const delayRaw = text(source.delayMs).trim();
+  return {
+    ...base,
+    id: text(source.id) || uid(),
+    label: text(source.label) || `响应 ${index + 2}`,
+    enabled,
+    statusCode: toNumber(source.statusCode, base.statusCode),
+    delayMs: toNumber(delayRaw, base.delayMs),
+    delayJitterMs: delayRaw === '' ? base.delayJitterMs : 0,
+    body: text(source.body) || base.body,
+  };
+}
+
+function buildResponses(input: RuleInput, fallback: ResponseConfig): ResponseEntry[] {
+  // `sequenceEnabled` is the master switch from early v3 backups; treat it
+  // like v2's `variantsEnabled` so an imported "no cycling" rule stays put.
+  const legacyOff = input.variantsEnabled === false || input.sequenceEnabled === false;
+  if (Array.isArray(input.responses) && input.responses.length > 0) {
+    const list = normalizeResponses(input.responses, fallback);
+    return legacyOff
+      ? list.map((item, index) => (index === 0 ? item : { ...item, enabled: false }))
+      : list;
+  }
+  const base = normalizeResponse(fieldsOf(input, RESPONSE_KEYS), fallback);
+  const legacy = Array.isArray(input.variants) ? input.variants : [];
+  // A rule with its old sequence switch off keeps only the default slot
+  // enabled, which behaves the same: every request gets slot 1.
+  const legacyEnabled = !legacyOff;
+  return [
+    base,
+    ...legacy.map((item, index) => expandLegacyVariant(item, base, index, legacyEnabled)),
+  ];
+}
+
+export function primaryResponse(rule: MockRule): ResponseEntry {
+  return rule.responses?.[0] ?? normalizeResponse({}, createDefaultResponse());
+}
+
+export function responseAt(rule: MockRule, index: number): ResponseEntry {
+  const list = rule.responses ?? [];
+  return list[Math.max(0, Math.min(index, list.length - 1))] ?? primaryResponse(rule);
+}
+
+/** Indexes of enabled slots; falls back to slot 0 when every slot is off. */
+export function enabledResponseIndexes(rule: MockRule): number[] {
+  const indexes = (rule.responses ?? [])
+    .map((response, index) => (response.enabled === false ? -1 : index))
+    .filter((index) => index >= 0);
+  return indexes.length > 0 ? indexes : [0];
+}
+
+/** The slot real requests fall back to when only one slot is enabled. */
+export function firstEnabledResponse(rule: MockRule): ResponseEntry {
+  return responseAt(rule, enabledResponseIndexes(rule)[0] ?? 0);
+}
+
+/** `buildResponse` also accepts a bare config (handy for previews and tests). */
+export function responseConfigOf(input: MockRule | ResponseConfig, index = 0): ResponseConfig {
+  return 'responses' in input ? responseAt(input, index) : input;
+}
+
+export function createDefaultRule(overrides: RuleInput = {}): MockRule {
+  const now = Date.now();
+  const base: MockRule = {
+    id: uid(),
+    name: 'New API',
+    method: 'GET',
+    path: '/api/example',
+    enabled: true,
+    description: '',
+    group: '',
     conditionsEnabled: true,
     conditions: [],
-    variantsEnabled: true,
-    variants: [],
     abort: 'none',
-    envelope: 'none',
+    responses: [normalizeResponse({}, createDefaultResponse())],
     createdAt: now,
     updatedAt: now,
-    ...overrides,
+  };
+  return {
+    ...base,
+    ...fieldsOf(overrides, RULE_KEYS),
+    responses: buildResponses(overrides, base.responses[0]!),
+  } as MockRule;
+}
+
+/** Normalises a whole rule, including v2 backups with flat fields / `variants`. */
+export function normalizeRule(input: RuleInput): MockRule {
+  const base = createDefaultRule();
+  const now = Date.now();
+  const source = (input ?? {}) as RuleInput;
+  return {
+    ...base,
+    ...fieldsOf(source, RULE_KEYS),
+    id: source.id ?? base.id,
+    name: source.name ?? base.name,
+    method: oneOf(source.method, HTTP_METHODS, base.method),
+    path: source.path ?? base.path,
+    enabled: source.enabled ?? base.enabled,
+    description: source.description ?? base.description,
+    group: source.group ?? base.group,
+    conditionsEnabled: source.conditionsEnabled ?? true,
+    conditions: Array.isArray(source.conditions) ? source.conditions : [],
+    abort: oneOf(source.abort, ABORTS, 'none'),
+    responses: buildResponses(source, base.responses[0]!),
+    createdAt: source.createdAt ?? now,
+    updatedAt: source.updatedAt ?? now,
+  };
+}
+
+/**
+ * Admin PUT bodies are patches, not whole rules. Legacy clients send flat
+ * response fields / `variants`; fold them into `responses` without dropping
+ * the rest of the current rule.
+ */
+export function coerceRulePatch(patch: RuleInput, current: MockRule): Partial<MockRule> {
+  const fields = fieldsOf(patch, PATCH_KEYS) as Partial<MockRule>;
+  const legacyOff = patch.variantsEnabled === false || patch.sequenceEnabled === false;
+  if (Array.isArray(patch.responses)) {
+    // Use neutral defaults, never the current default slot: an empty string
+    // in one slot means "not set", not "copy slot 1's value".
+    const list = normalizeResponses(patch.responses, createDefaultResponse());
+    return {
+      ...fields,
+      responses: legacyOff
+        ? list.map((item, index) => (index === 0 ? item : { ...item, enabled: false }))
+        : list,
+    };
+  }
+  const flat = fieldsOf(patch, RESPONSE_KEYS);
+  const hasFlat = Object.keys(flat).length > 0;
+  const hasLegacy =
+    Array.isArray(patch.variants) ||
+    patch.variantsEnabled !== undefined ||
+    patch.sequenceEnabled !== undefined;
+  if (!hasFlat && !hasLegacy) return fields;
+  // Keep the current default slot's own switch instead of silently turning it back on.
+  const base = normalizeResponse(flat, primaryResponse(current));
+  const legacyEnabled = !legacyOff;
+  const tail = Array.isArray(patch.variants)
+    ? patch.variants.map((item, index) => expandLegacyVariant(item, base, index, legacyEnabled))
+    : current.responses
+        .slice(1)
+        .map((item) => ({ ...item, enabled: legacyEnabled && item.enabled !== false }));
+  return {
+    ...fields,
+    responses: [base, ...tail],
   };
 }

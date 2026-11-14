@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 import { UPLOAD_DIR, MAX_DELAY_MS } from '../server/src/config';
-import { createDefaultRule } from '../server/src/defaults';
+import { createDefaultRule, createResponseEntry } from '../server/src/defaults';
 import type { MockRequestSnapshot, MockRule, UploadedFile } from '../server/src/types';
 
 const store = vi.hoisted(() => ({ files: new Map<string, UploadedFile>() }));
@@ -154,6 +154,35 @@ describe('buildResponse', () => {
     expect(result.body).toBe('<p>x</p>');
   });
 
+  it('builds a chosen response slot with its own status, headers and type', async () => {
+    const rule = createDefaultRule({
+      responses: [
+        createResponseEntry({ body: '{"slot":1}' }),
+        createResponseEntry({
+          responseType: 'html',
+          body: '<h1>down</h1>',
+          statusCode: 503,
+          headers: [{ key: 'X-Slot', value: '2' }],
+        }),
+      ],
+    });
+
+    const first = await buildResponse({ rule, responseIndex: 0, req: snapshot(), skipDelay: true });
+    expect(first.status).toBe(200);
+    expect(first.body).toBe('{"slot":1}');
+
+    const second = await buildResponse({
+      rule,
+      responseIndex: 1,
+      req: snapshot(),
+      skipDelay: true,
+    });
+    expect(second.status).toBe(503);
+    expect(second.body).toBe('<h1>down</h1>');
+    expect(second.contentType).toContain('text/html');
+    expect(second.headers['x-slot']).toBe('2');
+  });
+
   it('applies the configured delay unless it is skipped', async () => {
     const started = Date.now();
     const result = await buildResponse({
@@ -168,6 +197,16 @@ describe('buildResponse', () => {
 describe('delayFor', () => {
   it('is 0 for a rule without delay', () => {
     expect(delayFor(createDefaultRule())).toBe(0);
+  });
+
+  it('uses the first enabled slot when the default slot is off', () => {
+    const rule = createDefaultRule({
+      responses: [
+        createResponseEntry({ delayMs: 100, enabled: false }),
+        createResponseEntry({ delayMs: 20 }),
+      ],
+    });
+    expect(delayFor(rule)).toBe(20);
   });
 
   it('never returns a negative value', () => {

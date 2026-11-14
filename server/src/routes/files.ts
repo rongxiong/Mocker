@@ -80,8 +80,10 @@ filesRouter.delete('/:id', (req: Request, res: Response) => {
   // Deleting a file that rules still point at would break those rules at
   // request time (500 "Referenced file was not found"), so refuse unless the
   // caller explicitly forces it with `?force=1`.
-  const referencing = listRules().filter(
-    (rule) => rule.responseType === 'file' && rule.fileId === record.id,
+  const referencing = listRules().filter((rule) =>
+    rule.responses.some(
+      (response) => response.responseType === 'file' && response.fileId === record.id,
+    ),
   );
   if (referencing.length > 0 && req.query.force !== '1') {
     res.status(409).json({

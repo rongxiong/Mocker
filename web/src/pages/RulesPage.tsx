@@ -44,7 +44,23 @@ export function RulesPage({
   const [pendingAction, setPendingAction] = useState<(() => void) | null>(null);
 
   useEffect(() => {
-    setDraft(selectedRule ? { ...selectedRule } : null);
+    if (!selectedRule) {
+      setDraft(null);
+      return;
+    }
+    // Saving or toggling replaces the selected rule object. Keep the current
+    // draft in that case and only sync server-owned metadata; a real rule
+    // switch (different id) still loads a fresh draft.
+    setDraft((current) =>
+      current && current.id === selectedRule.id
+        ? {
+            ...current,
+            enabled: selectedRule.enabled,
+            createdAt: selectedRule.createdAt,
+            updatedAt: selectedRule.updatedAt,
+          }
+        : { ...selectedRule },
+    );
   }, [selectedRule]);
 
   const dirty = useMemo(() => {
@@ -106,7 +122,9 @@ export function RulesPage({
             saving={saving}
             conflict={conflict}
             groups={groups}
-            onChange={(patch) => setDraft({ ...draft, ...patch })}
+            onChange={(patch) =>
+              setDraft((current) => (current ? { ...current, ...patch } : current))
+            }
             onSave={() => {
               onSave(draft);
               setRefreshToken((token) => token + 1);

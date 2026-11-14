@@ -3,7 +3,7 @@ import { db, initDb } from './db';
 import { migrate } from './db/migrate';
 import { hydrateLogs } from './services/logStore';
 import { countRules, insertRule } from './db/ruleRepo';
-import { createDefaultRule } from './defaults';
+import { createDefaultRule, createResponseEntry } from './defaults';
 import {
   DATA_DIR,
   HOST,
@@ -25,23 +25,27 @@ function seedExamples(): void {
       method: 'GET',
       path: '/api/users/:id',
       description: 'Static JSON response with a 300ms + 0~200ms jitter delay',
-      delayMs: 300,
-      delayJitterMs: 200,
-      responseType: 'json',
-      body: JSON.stringify(
-        {
-          code: 0,
-          data: {
-            id: 1001,
-            nickname: 'Ada Lovelace',
-            email: 'ada@example.com',
-            level: 'gold',
-            createdAt: '2026-01-01T08:00:00.000Z',
-          },
-        },
-        null,
-        2,
-      ),
+      responses: [
+        createResponseEntry({
+          delayMs: 300,
+          delayJitterMs: 200,
+          responseType: 'json',
+          body: JSON.stringify(
+            {
+              code: 0,
+              data: {
+                id: 1001,
+                nickname: 'Ada Lovelace',
+                email: 'ada@example.com',
+                level: 'gold',
+                createdAt: '2026-01-01T08:00:00.000Z',
+              },
+            },
+            null,
+            2,
+          ),
+        }),
+      ],
       createdAt: now,
       updatedAt: now,
     }),
@@ -53,8 +57,10 @@ function seedExamples(): void {
       method: 'POST',
       path: '/api/products/search',
       description: 'JavaScript response generated per request with faker + RandExp',
-      responseType: 'javascript',
-      body: `// req, console, faker, RandExp, uuid() are available
+      responses: [
+        createResponseEntry({
+          responseType: 'javascript',
+          body: `// req, console, faker, RandExp, uuid() are available
 const keyword = req.body?.keyword ?? '';
 const size = req.body?.size ?? 3;
 
@@ -70,6 +76,8 @@ return {
     inStock: faker.datatype.boolean(),
   })),
 };`,
+        }),
+      ],
       createdAt: now,
       updatedAt: now,
     }),
@@ -81,7 +89,7 @@ return {
       method: 'GET',
       path: '/api/orders',
       description: 'Generated from the visual JSON structure editor',
-      responseType: 'schema',
+      responses: [createResponseEntry({ responseType: 'schema' })],
       createdAt: now,
       updatedAt: now,
     }),

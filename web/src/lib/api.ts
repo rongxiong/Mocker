@@ -70,8 +70,8 @@ export const api = {
         body: JSON.stringify(patch),
       })
     ).settings,
-  resetVariants: (ruleId?: string) =>
-    request<{ ok: boolean }>('/variants/reset', {
+  resetSequence: (ruleId?: string) =>
+    request<{ ok: boolean }>('/responses/reset', {
       method: 'POST',
       body: JSON.stringify({ ruleId }),
     }),
@@ -100,10 +100,13 @@ export const api = {
 
   exportAll: () => request<{ version: number; rules: MockRule[] }>('/export'),
   importRules: (payload: unknown, mode: 'merge' | 'replace') =>
-    request<{ imported: number; updated: number; total: number }>('/import', {
-      method: 'POST',
-      body: JSON.stringify({ ...(payload as object), mode }),
-    }),
+    request<{ imported: number; updated: number; filesRestored: number; total: number }>(
+      '/import',
+      {
+        method: 'POST',
+        body: JSON.stringify({ ...(payload as object), mode }),
+      },
+    ),
 
   listFiles: async () => (await request<{ files: UploadedFile[] }>('/files')).files,
   uploadFile: async (file: File) => {

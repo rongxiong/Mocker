@@ -1,5 +1,5 @@
-import type { HttpMethod, MockRule, SchemaField, SchemaFieldType } from './types';
-import { uid } from './defaults';
+import type { HttpMethod, MockRule, ResponseConfig, SchemaField, SchemaFieldType } from './types';
+import { createResponseEntry, uid } from './defaults';
 
 type Json = Record<string, unknown>;
 
@@ -160,13 +160,15 @@ export function importOpenApi(input: unknown): OpenApiImportResult {
           `${method} ${rawPath}`,
         method,
         path: convertPath(rawPath),
-        statusCode: Number(picked?.status ?? 200),
         group:
           Array.isArray(operation.tags) && operation.tags.length > 0
             ? String(operation.tags[0])
             : '',
         description: typeof operation.description === 'string' ? operation.description : '',
         enabled: true,
+      };
+      const response: Partial<ResponseConfig> = {
+        statusCode: Number(picked?.status ?? 200),
       };
 
       if (schema) {
@@ -182,8 +184,8 @@ export function importOpenApi(input: unknown): OpenApiImportResult {
             : { ...childField, optional: true, optionalRatio: 0.9 };
         });
         const single = (schema as Json).type === 'array';
-        draft.responseType = 'schema';
-        draft.schema = single
+        response.responseType = 'schema';
+        response.schema = single
           ? [
               {
                 id: uid(),
@@ -195,21 +197,22 @@ export function importOpenApi(input: unknown): OpenApiImportResult {
               },
             ]
           : fields;
-        draft.schemaRoot = single ? 'array' : 'object';
-        if (draft.schema.length === 0) {
+        response.schemaRoot = single ? 'array' : 'object';
+        if (response.schema.length === 0) {
           warnings.push(`${method} ${rawPath}：响应 schema 没有可识别的属性，已回退为 JSON。`);
-          draft.responseType = 'json';
-          draft.body = JSON.stringify({ message: 'ok' }, null, 2);
+          response.responseType = 'json';
+          response.body = JSON.stringify({ message: 'ok' }, null, 2);
         }
       } else if (example) {
-        draft.responseType = 'json';
-        draft.body = JSON.stringify(example, null, 2);
+        response.responseType = 'json';
+        response.body = JSON.stringify(example, null, 2);
       } else {
-        draft.responseType = 'json';
-        draft.body = JSON.stringify({ code: 0, message: 'ok', data: null }, null, 2);
+        response.responseType = 'json';
+        response.body = JSON.stringify({ code: 0, message: 'ok', data: null }, null, 2);
         warnings.push(`${method} ${rawPath}：响应没有 schema/example，已生成占位 JSON。`);
       }
 
+      draft.responses = [createResponseEntry(response)];
       rules.push(draft);
     }
   }
