@@ -44,7 +44,7 @@ export function ResponseEditor({ response, onChange }: ResponseEditorProps) {
 
   return (
     <div className="space-y-3">
-      <div className="grid grid-cols-[130px_130px_1fr] gap-3">
+      <div className="grid grid-cols-3 gap-3">
         <div>
           <Label htmlFor="response-status" className="flex items-center gap-1">
             状态码
