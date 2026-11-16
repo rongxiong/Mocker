@@ -6,6 +6,7 @@ import {
   countRules,
   deleteAllRules,
   deleteRule,
+  findByName,
   findConflicts,
   getRule,
   insertMany,
@@ -77,12 +78,28 @@ adminRouter.get('/rules/:id', (req: Request, res: Response) => {
 
 adminRouter.post('/rules', (req: Request, res: Response) => {
   const rule = normalizeRule(req.body ?? {});
+  // Trim before comparing so " foo " can't slip past as a visual duplicate.
+  rule.name = rule.name.trim();
+  if (findByName(rule.name)) {
+    res.status(409).json({ error: `已存在同名接口「${rule.name}」，请更换名称` });
+    return;
+  }
   insertRule(rule);
   res.status(201).json({ rule });
 });
 
 adminRouter.put('/rules/:id', (req: Request, res: Response) => {
-  const updated = updateRule(String(req.params.id), req.body ?? {});
+  const id = String(req.params.id);
+  const patch = (req.body ?? {}) as RuleInput;
+  if (typeof patch.name === 'string') {
+    patch.name = patch.name.trim();
+    // Exclude the rule itself: re-saving an unchanged name must stay valid.
+    if (findByName(patch.name, id)) {
+      res.status(409).json({ error: `已存在同名接口「${patch.name}」，请更换名称` });
+      return;
+    }
+  }
+  const updated = updateRule(id, patch);
   if (!updated) {
     res.status(404).json({ error: 'Rule not found' });
     return;
@@ -106,10 +123,16 @@ adminRouter.post('/rules/:id/duplicate', (req: Request, res: Response) => {
     return;
   }
   const now = Date.now();
+  // The copy is system-generated, so pick a free name ("foo copy", "foo copy 2"…)
+  // instead of failing with a 409 the user cannot react to.
+  let name = `${source.name} copy`;
+  for (let suffix = 2; findByName(name); suffix += 1) {
+    name = `${source.name} copy ${suffix}`;
+  }
   const copy: MockRule = {
     ...source,
     id: uid(),
-    name: `${source.name} copy`,
+    name,
     createdAt: now,
     updatedAt: now,
   };

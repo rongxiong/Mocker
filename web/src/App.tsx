@@ -9,7 +9,7 @@ import { SettingsPage } from '@/pages/SettingsPage';
 import { ToastHost, toast } from '@/components/ui/toast';
 import { Dialog } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { api } from '@/lib/api';
+import { api, ApiError } from '@/lib/api';
 import type { ServerInfo } from '@/lib/api';
 import { createDefaultRule } from '@shared/defaults';
 
@@ -83,14 +83,19 @@ export default function App() {
 
   const handleCreate = async () => {
     try {
-      const rule = await api.createRule(createDefaultRule({ name: `接口 ${rules.length + 1}` }));
+      // `length + 1` can repeat after deletions, so walk forward to the first
+      // free name instead of handing the server a guaranteed collision.
+      const usedNames = new Set(rules.map((rule) => rule.name));
+      let seq = rules.length + 1;
+      while (usedNames.has(`接口 ${seq}`)) seq += 1;
+      const rule = await api.createRule(createDefaultRule({ name: `接口 ${seq}` }));
       setRules((current) => [rule, ...current]);
       setSelectedId(rule.id);
       setConflicts(await api.listRules().then((data) => data.conflicts));
       setView('rules');
       toast('已创建新接口', 'success');
-    } catch {
-      toast('创建失败', 'error');
+    } catch (error) {
+      toast(error instanceof ApiError ? error.message : '创建失败', 'error');
     }
   };
 
@@ -103,8 +108,8 @@ export default function App() {
       setRules((current) => current.map((item) => (item.id === saved.id ? saved : item)));
       setConflicts(await api.listRules().then((data) => data.conflicts));
       toast('已保存', 'success');
-    } catch {
-      toast('保存失败', 'error');
+    } catch (error) {
+      toast(error instanceof ApiError ? error.message : '保存失败', 'error');
     } finally {
       setSaving(false);
     }

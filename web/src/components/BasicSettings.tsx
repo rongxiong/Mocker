@@ -22,10 +22,17 @@ function newCondition(): RuleCondition {
 interface BasicSettingsProps {
   rule: MockRule;
   groups?: string[];
+  /** another rule already uses the current (trimmed) name */
+  nameConflict?: boolean;
   onChange: (patch: Partial<MockRule>) => void;
 }
 
-export function BasicSettings({ rule, groups = [], onChange }: BasicSettingsProps) {
+export function BasicSettings({
+  rule,
+  groups = [],
+  nameConflict = false,
+  onChange,
+}: BasicSettingsProps) {
   const [openConditions, setOpenConditions] = useState((rule.conditions ?? []).length > 0);
 
   const conditions = rule.conditions ?? [];
@@ -45,8 +52,16 @@ export function BasicSettings({ rule, groups = [], onChange }: BasicSettingsProp
             id="rule-name"
             value={rule.name}
             placeholder="例如：用户详情"
+            className={
+              nameConflict
+                ? 'border-rose-400/60 focus:border-rose-400/70 focus:ring-rose-400/30'
+                : undefined
+            }
             onChange={(event) => onChange({ name: event.target.value })}
           />
+          {nameConflict ? (
+            <p className="mt-1 text-[11px] text-rose-300">已存在同名接口，请更换名称后再保存</p>
+          ) : null}
         </div>
         <div>
           <Label htmlFor="rule-desc">备注</Label>

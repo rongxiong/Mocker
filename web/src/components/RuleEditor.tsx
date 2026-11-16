@@ -18,6 +18,7 @@ interface RuleEditorProps {
   dirty: boolean;
   saving: boolean;
   conflict: RuleConflict | null;
+  nameConflict: boolean;
   groups: string[];
   onChange: (patch: Partial<MockRule>) => void;
   onSave: () => void;
@@ -30,6 +31,7 @@ export function RuleEditor({
   dirty,
   saving,
   conflict,
+  nameConflict,
   groups,
   onChange,
   onSave,
@@ -139,7 +141,13 @@ export function RuleEditor({
             <Trash2 size={13} />
             删除
           </Button>
-          <Button variant="primary" size="md" onClick={onSave} disabled={saving || !jsonOk}>
+          <Button
+            variant="primary"
+            size="md"
+            onClick={onSave}
+            disabled={saving || !jsonOk || nameConflict}
+            title={nameConflict ? '接口名称与其他规则重复，请先更换名称' : undefined}
+          >
             <Save size={13} />
             {saving ? '保存中…' : '保存'}
           </Button>
@@ -161,7 +169,12 @@ export function RuleEditor({
 
         <div className="glass rounded-2xl p-4">
           <p className="panel-title mb-3">基础配置</p>
-          <BasicSettings rule={rule} groups={groups} onChange={onChange} />
+          <BasicSettings
+            rule={rule}
+            groups={groups}
+            nameConflict={nameConflict}
+            onChange={onChange}
+          />
         </div>
 
         <div className="glass mt-4 rounded-2xl p-4">

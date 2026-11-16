@@ -41,11 +41,15 @@ beforeEach(() => {
   resetSequence();
 });
 
+// Rule names are unique, so unnamed test rules get an auto-generated one;
+// callers can still pass an explicit `name` to override it.
+let ruleSeq = 0;
+
 async function createRule(patch: RuleInput = {}): Promise<MockRule> {
   const response = await fetch(`${base}/__api/rules`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify(createDefaultRule(patch)),
+    body: JSON.stringify(createDefaultRule({ name: `test-rule-${++ruleSeq}`, ...patch })),
   });
   expect(response.status).toBe(201);
   const payload = (await response.json()) as { rule: MockRule };
@@ -104,6 +108,74 @@ describe('admin API', () => {
     const copy = ((await response.json()) as { rule: MockRule }).rule;
     expect(copy.id).not.toBe(source.id);
     expect(copy.name).toBe('Source copy');
+  });
+
+  it('rejects creating a rule whose name is already taken', async () => {
+    await createRule({ name: 'Duplicate me' });
+    const response = await fetch(`${base}/__api/rules`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(createDefaultRule({ name: 'Duplicate me' })),
+    });
+    expect(response.status).toBe(409);
+    expect((await response.json()) as { error: string }).toMatchObject({
+      error: expect.stringContaining('Duplicate me'),
+    });
+  });
+
+  it('trims names and treats visual duplicates (surrounding spaces) as collisions', async () => {
+    await createRule({ name: 'Padded' });
+    const clash = await fetch(`${base}/__api/rules`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(createDefaultRule({ name: '  Padded  ' })),
+    });
+    expect(clash.status).toBe(409);
+
+    // An accepted rule stores the trimmed name, so later edits compare cleanly.
+    const created = await createRule({ name: '  Spaced  ' });
+    expect(created.name).toBe('Spaced');
+  });
+
+  it('rejects renaming onto an existing name while keeping the rule’s own name valid', async () => {
+    const first = await createRule({ name: 'First' });
+    await createRule({ name: 'Second' });
+
+    const clash = await fetch(`${base}/__api/rules/${first.id}`, {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ name: 'Second' }),
+    });
+    expect(clash.status).toBe(409);
+
+    // Re-saving with the rule’s own (unchanged) name must stay valid.
+    const keep = await fetch(`${base}/__api/rules/${first.id}`, {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ name: 'First', description: 'touched' }),
+    });
+    expect(keep.status).toBe(200);
+  });
+
+  it('allows blank names and auto-uniquifies repeated duplicates', async () => {
+    const unnamedA = await createRule({ name: '   ' });
+    expect(unnamedA.name).toBe('');
+    const unnamedB = await createRule({ name: '' });
+    expect(unnamedB.name).toBe('');
+
+    const source = await createRule({ name: 'Source' });
+    const firstCopy = await fetch(`${base}/__api/rules/${source.id}/duplicate`, {
+      method: 'POST',
+    });
+    expect((await firstCopy.json()) as { rule: MockRule }).toMatchObject({
+      rule: { name: 'Source copy' },
+    });
+    const secondCopy = await fetch(`${base}/__api/rules/${source.id}/duplicate`, {
+      method: 'POST',
+    });
+    expect((await secondCopy.json()) as { rule: MockRule }).toMatchObject({
+      rule: { name: 'Source copy 2' },
+    });
   });
 
   it('previews a rule without applying its delay', async () => {

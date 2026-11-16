@@ -98,6 +98,17 @@ export function countRules(): number {
   return Number(row?.c ?? 0);
 }
 
+/**
+ * Finds another rule carrying the same name (compared after trimming). Blank
+ * names are never treated as collisions so multiple unnamed rules stay allowed.
+ * `excludeId` lets a rule keep its own name when being updated.
+ */
+export function findByName(name: string, excludeId?: string): MockRule | undefined {
+  const trimmed = name.trim();
+  if (!trimmed) return undefined;
+  return listRules().find((rule) => rule.id !== excludeId && rule.name === trimmed);
+}
+
 /** Rules sharing the same method + path shadow each other; the first match wins. */
 export function findConflicts(rules: MockRule[] = listRules()): RuleConflict[] {
   const groups = new Map<string, MockRule[]>();

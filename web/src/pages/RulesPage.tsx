@@ -6,6 +6,7 @@ import { RuleEditor } from '@/components/RuleEditor';
 import { ResponsePreview } from '@/components/ResponsePreview';
 import { Button } from '@/components/ui/button';
 import { Dialog } from '@/components/ui/dialog';
+import { deepEqual } from '@/lib/utils';
 
 interface RulesPageProps {
   rules: MockRule[];
@@ -65,8 +66,19 @@ export function RulesPage({
 
   const dirty = useMemo(() => {
     if (!draft || !selectedRule) return false;
-    return JSON.stringify(draft) !== JSON.stringify(selectedRule);
+    // Key order differs between a freshly created rule and the same rule read
+    // back from the DB, so compare values rather than JSON strings.
+    return !deepEqual(draft, selectedRule);
   }, [draft, selectedRule]);
+
+  // Another rule already uses this name (blank names are exempt). The server
+  // rejects such saves with 409; mirror the rule locally for instant feedback.
+  const nameConflict = useMemo(() => {
+    if (!draft) return false;
+    const name = draft.name.trim();
+    if (!name) return false;
+    return rules.some((rule) => rule.id !== draft.id && rule.name.trim() === name);
+  }, [draft, rules]);
 
   /** Never drop unsaved edits silently. */
   const guard = (action: () => void) => {
@@ -85,19 +97,20 @@ export function RulesPage({
     const onKey = (event: KeyboardEvent) => {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 's') {
         event.preventDefault();
-        if (draft && dirty) onSave(draft);
+        if (draft && dirty && !nameConflict) onSave(draft);
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [draft, dirty, onSave]);
+  }, [draft, dirty, nameConflict, onSave]);
 
-  // Optional auto-save, 1.2s after the last edit.
+  // Optional auto-save, 1.2s after the last edit. Skipped while the name
+  // collides, otherwise the debounce would fire a doomed request on every edit.
   useEffect(() => {
-    if (!autoSave || !dirty || !draft || saving) return undefined;
+    if (!autoSave || !dirty || nameConflict || !draft || saving) return undefined;
     const timer = setTimeout(() => onSave(draft), 1200);
     return () => clearTimeout(timer);
-  }, [autoSave, dirty, draft, saving, onSave]);
+  }, [autoSave, dirty, nameConflict, draft, saving, onSave]);
 
   return (
     <div className="flex h-full min-h-0">
@@ -121,6 +134,7 @@ export function RulesPage({
             dirty={dirty}
             saving={saving}
             conflict={conflict}
+            nameConflict={nameConflict}
             groups={groups}
             onChange={(patch) =>
               setDraft((current) => (current ? { ...current, ...patch } : current))
