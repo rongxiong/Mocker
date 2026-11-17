@@ -97,24 +97,24 @@ export function FilesPage() {
             if (file) void upload(file);
           }}
           className={cn(
-            'glass flex flex-col items-center justify-center gap-2 rounded-2xl border-dashed py-10 transition-all duration-200',
-            dragging ? 'border-brand-500/70 bg-brand-500/10' : 'border-line-strong',
+            'glass flex flex-col items-center justify-center gap-2 rounded-xl border-dashed py-10 transition-colors duration-150',
+            dragging ? 'border-brand-500/60 bg-brand-500/5' : 'border-line-strong',
           )}
         >
-          <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-brand-gradient/20">
-            <UploadCloud size={20} className="text-brand-300" />
+          <div className="flex h-12 w-12 items-center justify-center rounded-xl border border-line bg-fill">
+            <UploadCloud size={16} strokeWidth={1.5} className="text-muted-300" />
           </div>
-          <p className="text-[13.5px] font-medium text-muted-100">
+          <p className="text-[14px] font-medium text-fg">
             拖拽文件到此处，或
             <button
               type="button"
-              className="mx-1 cursor-pointer text-brand-300 underline-offset-2 hover:underline"
+              className="mx-1 cursor-pointer text-brand-200 underline-offset-2 hover:underline"
               onClick={() => inputRef.current?.click()}
             >
               点击上传
             </button>
           </p>
-          <p className="text-[11.5px] text-muted-300">单个文件最大 100 MB</p>
+          <p className="text-[13px] text-muted-300">单个文件最大 100 MB</p>
           <input
             ref={inputRef}
             type="file"
@@ -125,79 +125,83 @@ export function FilesPage() {
               event.target.value = '';
             }}
           />
-          {uploading ? <p className="text-[12px] text-brand-300">上传中…</p> : null}
+          {uploading ? <p className="text-[13px] text-brand-200">上传中…</p> : null}
         </div>
 
-        <div className="glass overflow-hidden rounded-2xl">
-          <div className="flex items-center justify-between border-b border-line px-4 py-2.5">
-            <span className="panel-title">文件库 · {files.length}</span>
-            <span className="text-[11.5px] text-muted-300">
+        <div className="glass overflow-hidden rounded-xl">
+          <div className="flex items-center justify-between gap-3 border-b border-line px-4 py-3">
+            <span className="panel-title shrink-0">文件库 · {files.length}</span>
+            <span className="hidden truncate text-[13px] text-muted-300 sm:block">
               在规则的 File 响应类型中选择这里的文件
             </span>
           </div>
           {files.length === 0 ? (
-            <p className="px-4 py-10 text-center text-[12.5px] text-muted-300">
-              还没有上传任何文件
-            </p>
+            <p className="px-4 py-10 text-center text-[13px] text-muted-300">还没有上传任何文件</p>
           ) : (
-            <table className="w-full text-left text-[12.5px]">
-              <thead>
-                <tr className="border-b border-line text-[11px] uppercase tracking-wider text-muted-300">
-                  <th className="px-4 py-2 font-medium">文件名</th>
-                  <th className="px-4 py-2 font-medium">类型</th>
-                  <th className="px-4 py-2 font-medium">大小</th>
-                  <th className="px-4 py-2 font-medium">上传时间</th>
-                  <th className="px-4 py-2 text-right font-medium">操作</th>
-                </tr>
-              </thead>
-              <tbody>
-                {files.map((file) => {
-                  const Icon = iconFor(file.mime);
-                  return (
-                    <tr
-                      key={file.id}
-                      className="border-b border-line transition-colors last:border-b-0 hover:bg-fill"
-                    >
-                      <td className="px-4 py-2.5">
-                        <div className="flex items-center gap-2">
-                          <Icon size={15} className="text-brand-300" />
-                          <span className="font-medium text-muted-100">{file.name}</span>
-                        </div>
-                      </td>
-                      <td className="px-4 py-2.5 font-mono text-[11.5px] text-muted-200">
-                        {file.mime}
-                      </td>
-                      <td className="px-4 py-2.5 font-mono text-[11.5px] text-muted-200">
-                        {formatBytes(file.size)}
-                      </td>
-                      <td className="px-4 py-2.5 text-[11.5px] text-muted-300">
-                        {formatDateTime(file.createdAt)}
-                      </td>
-                      <td className="px-4 py-2.5">
-                        <div className="flex items-center justify-end gap-1">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => window.open(api.fileUrl(file.id), '_blank')}
-                          >
-                            <Download size={12} />
-                            下载
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            title="删除"
-                            onClick={() => void remove(file)}
-                          >
-                            <Trash2 size={13} className="text-muted-300 hover:text-rose-300" />
-                          </Button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[560px] text-left text-[13px]">
+                <thead>
+                  <tr className="border-b border-line text-[12px] text-muted-300">
+                    <th className="px-4 py-2 font-medium">文件名</th>
+                    <th className="px-4 py-2 font-medium">类型</th>
+                    <th className="px-4 py-2 font-medium">大小</th>
+                    <th className="px-4 py-2 font-medium">上传时间</th>
+                    <th className="px-4 py-2 text-right font-medium">操作</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {files.map((file) => {
+                    const Icon = iconFor(file.mime);
+                    return (
+                      <tr
+                        key={file.id}
+                        className="border-b border-line transition-colors last:border-b-0 hover:bg-fill"
+                      >
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-2">
+                            <Icon size={16} strokeWidth={1.5} className="text-muted-300" />
+                            <span className="font-medium text-fg">{file.name}</span>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 font-mono text-[12px] text-muted-200">
+                          {file.mime}
+                        </td>
+                        <td className="px-4 py-3 font-mono text-[12px] tabular-nums text-muted-200">
+                          {formatBytes(file.size)}
+                        </td>
+                        <td className="px-4 py-3 text-[13px] text-muted-300">
+                          {formatDateTime(file.createdAt)}
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center justify-end gap-1">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => window.open(api.fileUrl(file.id), '_blank')}
+                            >
+                              <Download size={16} strokeWidth={1.5} />
+                              下载
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              title="删除"
+                              onClick={() => void remove(file)}
+                            >
+                              <Trash2
+                                size={16}
+                                strokeWidth={1.5}
+                                className="text-muted-300 hover:text-danger"
+                              />
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           )}
         </div>
       </div>

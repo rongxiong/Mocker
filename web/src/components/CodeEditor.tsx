@@ -8,7 +8,7 @@ import { EditorView, keymap } from '@codemirror/view';
 import { Prec, type Extension } from '@codemirror/state';
 import { HighlightStyle, syntaxHighlighting } from '@codemirror/language';
 import { tags } from '@lezer/highlight';
-import { Wand2 } from 'lucide-react';
+import { Braces } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useTheme } from '@/lib/theme';
 import { toast } from './ui/toast';
@@ -118,7 +118,7 @@ export function CodeEditor({
   }, [language, canFormat]);
 
   return (
-    <div className="overflow-hidden rounded-xl border border-line transition-shadow focus-within:border-brand-500/50 focus-within:shadow-glow">
+    <div className="overflow-hidden rounded-lg border border-line transition-colors focus-within:border-brand-500/60">
       {canFormat ? (
         <div className="flex items-center justify-end border-b border-line bg-fill px-2 py-1">
           <button
@@ -126,13 +126,13 @@ export function CodeEditor({
             onClick={format}
             title="格式化 JSON（Shift+Alt+F / ⇧⌥F）"
             className={cn(
-              'flex cursor-pointer items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px]',
-              'text-muted-300 transition-colors hover:bg-fill hover:text-brand-300',
+              'flex cursor-pointer items-center gap-2 rounded-md px-1.5 py-1 text-[13px]',
+              'text-muted-300 transition-colors hover:bg-fill hover:text-brand-200',
             )}
           >
-            <Wand2 size={11} />
+            <Braces size={16} strokeWidth={1.5} />
             格式化
-            <kbd className="ml-0.5 rounded border border-line-strong px-1 font-sans text-[10px] text-muted-300">
+            <kbd className="ml-0.5 rounded border border-line-strong px-1 font-sans text-[12px] text-muted-300">
               ⇧⌥F
             </kbd>
           </button>

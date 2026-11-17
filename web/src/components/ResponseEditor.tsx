@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Check, FileCode2, Info, Plus, Timer, Trash2, Upload, Wand2 } from 'lucide-react';
+import { Check, FileCode2, Info, Plus, Timer, Trash2, Upload } from 'lucide-react';
 import type {
   EnvelopeType,
   HeaderEntry,
@@ -44,7 +44,7 @@ export function ResponseEditor({ response, onChange }: ResponseEditorProps) {
 
   return (
     <div className="space-y-3">
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <div>
           <Label htmlFor="response-status" className="flex items-center gap-1">
             状态码
@@ -65,8 +65,8 @@ export function ResponseEditor({ response, onChange }: ResponseEditorProps) {
           </Select>
         </div>
         <div>
-          <Label htmlFor="response-delay" className="flex items-center gap-1">
-            <Timer size={11} /> 延迟 (ms)
+          <Label htmlFor="response-delay" className="flex items-center gap-2">
+            <Timer size={16} strokeWidth={1.5} /> 延迟 (ms)
           </Label>
           <Input
             id="response-delay"
@@ -129,7 +129,7 @@ export function ResponseEditor({ response, onChange }: ResponseEditorProps) {
                 title="删除"
                 onClick={() => patchHeaders(response.headers.filter((_, i) => i !== index))}
               >
-                <Trash2 size={13} />
+                <Trash2 size={16} strokeWidth={1.5} />
               </Button>
             </div>
           ))}
@@ -138,12 +138,12 @@ export function ResponseEditor({ response, onChange }: ResponseEditorProps) {
             size="sm"
             onClick={() => patchHeaders([...response.headers, { key: '', value: '' }])}
           >
-            <Plus size={12} /> 添加响应头
+            <Plus size={16} strokeWidth={1.5} /> 添加响应头
           </Button>
         </div>
       </div>
 
-      <div className="grid grid-cols-[1fr_240px] gap-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_240px]">
         <div>
           <Label htmlFor="response-content-type">Content-Type（留空自动推断）</Label>
           <Input
@@ -190,8 +190,8 @@ export function ResponseEditor({ response, onChange }: ResponseEditorProps) {
           />
         </div>
 
-        <p className="mb-3 flex items-center gap-1.5 text-[11.5px] text-muted-300">
-          <Info size={12} />
+        <p className="mb-3 flex items-center gap-2 text-[13px] text-muted-300">
+          <Info size={16} strokeWidth={1.5} />
           {RESPONSE_TYPES.find((item) => item.value === response.responseType)?.hint}
         </p>
 
@@ -203,13 +203,13 @@ export function ResponseEditor({ response, onChange }: ResponseEditorProps) {
               height="300px"
               onChange={(value) => onChange({ body: value })}
             />
-            <div className="flex items-center gap-2 text-[11.5px]">
+            <div className="flex items-center gap-2 text-[13px]">
               {jsonOk ? (
-                <span className="flex items-center gap-1 text-emerald-300">
-                  <Check size={12} /> JSON 合法
+                <span className="flex items-center gap-2 text-ok">
+                  <Check size={16} strokeWidth={1.5} /> JSON 合法
                 </span>
               ) : (
-                <span className="text-rose-300">JSON 解析失败，保存后仍会原样返回</span>
+                <span className="text-danger">JSON 解析失败，保存后仍会原样返回</span>
               )}
             </div>
           </div>
@@ -232,16 +232,16 @@ export function ResponseEditor({ response, onChange }: ResponseEditorProps) {
               height="300px"
               onChange={(value) => onChange({ body: value })}
             />
-            <div className="flex flex-wrap items-center gap-2 rounded-xl border border-brand-500/20 bg-brand-500/[0.07] px-3 py-2 text-[11.5px] text-muted-200">
-              <Wand2 size={12} className="text-brand-300" />
+            <div className="flex flex-wrap items-center gap-2 rounded-lg border border-line bg-fill px-3 py-2 text-[13px] text-muted-200">
+              <Info size={16} strokeWidth={1.5} className="text-muted-300" />
               <span>
-                可用变量：<code className="font-mono text-brand-200">req</code>（method / path /
-                params / query / headers / cookies / body）、
-                <code className="font-mono text-brand-200">console</code>、
-                <code className="font-mono text-brand-200">faker</code>、
-                <code className="font-mono text-brand-200">RandExp</code>、
-                <code className="font-mono text-brand-200">uuid()</code>、
-                <code className="font-mono text-brand-200">require()</code>
+                可用变量：<code className="font-mono text-fg">req</code>（method / path / params /
+                query / headers / cookies / body）、
+                <code className="font-mono text-fg">console</code>、
+                <code className="font-mono text-fg">faker</code>、
+                <code className="font-mono text-fg">RandExp</code>、
+                <code className="font-mono text-fg">uuid()</code>、
+                <code className="font-mono text-fg">require()</code>
               </span>
               <span className="text-muted-300">
                 require 白名单：faker, randexp, uuid, path, url, util, crypto, querystring
@@ -295,18 +295,18 @@ export function ResponseEditor({ response, onChange }: ResponseEditorProps) {
                   event.target.value = '';
                 }}
               />
-              <Button variant="secondary" size="md" onClick={() => fileInput.current?.click()}>
-                <Upload size={13} />
+              <Button variant="secondary" onClick={() => fileInput.current?.click()}>
+                <Upload size={16} strokeWidth={1.5} />
                 上传文件
               </Button>
             </div>
             {response.fileId ? (
-              <p className="text-[11.5px] text-muted-300">
+              <p className="text-[13px] text-muted-300">
                 将按文件扩展名自动推断 Content-Type；可到「文件库」页面下载或替换。
               </p>
             ) : (
-              <div className="flex items-center gap-2 rounded-xl border border-line bg-ink-900/50 p-4 text-[12px] text-muted-300">
-                <FileCode2 size={15} />
+              <div className="flex items-center gap-2 rounded-lg border border-line bg-fill p-4 text-[13px] text-muted-300">
+                <FileCode2 size={16} strokeWidth={1.5} />
                 还没有选择文件，上传后即可作为响应体返回（支持二进制）。
               </div>
             )}

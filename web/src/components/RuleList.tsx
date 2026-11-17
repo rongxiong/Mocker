@@ -14,7 +14,6 @@ import { primaryResponse } from '@shared/defaults';
 import { Button } from './ui/button';
 import { Input, Select } from './ui/input';
 import { Switch } from './ui/switch';
-import { MethodBadge } from './ui/badge';
 import { cn } from '@/lib/utils';
 import { HTTP_METHODS, RESPONSE_TYPES } from '@/lib/constants';
 
@@ -92,6 +91,13 @@ export function RuleList({
     const active = rule.id === selectedId;
     const first = primaryResponse(rule);
     const enabledCount = rule.responses.filter((item) => item.enabled !== false).length;
+    const meta = [TYPE_LABEL.get(first.responseType) ?? first.responseType];
+    if (rule.responses.length > 1) {
+      meta.push(enabledCount === 0 ? '档位全停' : `${enabledCount}/${rule.responses.length} 档`);
+    }
+    if (first.delayMs > 0 || first.delayJitterMs > 0) {
+      meta.push(`${first.delayMs}${first.delayJitterMs > 0 ? `+${first.delayJitterMs}` : ''}ms`);
+    }
     return (
       <li key={rule.id}>
         <div
@@ -102,85 +108,70 @@ export function RuleList({
             if (event.key === 'Enter' || event.key === ' ') onSelect(rule.id);
           }}
           className={cn(
-            'group relative w-full cursor-pointer rounded-xl border p-2.5 transition-all duration-200',
+            'group cursor-pointer rounded-lg border border-l-[3px] border-l-transparent p-3 transition-colors duration-150',
             active
-              ? 'border-brand-500/50 bg-brand-500/[0.12] shadow-[0_10px_30px_-18px_rgba(124,92,255,.9)]'
-              : 'border-transparent bg-fill/40 hover:-translate-y-[1px] hover:border-line-strong hover:bg-fill',
+              ? 'border-brand-500/40 border-l-brand-500 bg-brand-500/[0.08]'
+              : 'border-transparent hover:border-line hover:bg-fill',
             !rule.enabled && 'opacity-55',
           )}
         >
           <div className="flex items-center gap-2">
-            <MethodBadge method={rule.method} />
-            <span className="truncate text-[12.5px] font-medium text-muted-100">
+            <span className="min-w-0 flex-1 truncate text-[14px] font-medium text-fg">
               {rule.name || '未命名'}
             </span>
             {conflictIds.has(rule.id) ? (
               <span
                 title="存在重复的方法 + 路径，只有最新一条会被命中"
-                className="flex shrink-0 items-center gap-0.5 whitespace-nowrap rounded border border-amber-400/30 bg-amber-400/10 px-1 text-[10px] text-amber-300"
+                className="flex shrink-0 items-center gap-1 text-[12px] text-warn"
               >
-                <AlertTriangle size={9} />
+                <AlertTriangle size={16} strokeWidth={1.5} />
                 重复
               </span>
             ) : null}
+            <Switch
+              checked={rule.enabled}
+              onCheckedChange={(next) => onToggle(rule, next)}
+              title={rule.enabled ? '已启用' : '已停用'}
+            />
           </div>
 
-          <div className="mt-1.5 flex items-center gap-1.5">
-            <span className="truncate font-mono text-[11px] text-muted-200">{rule.path}</span>
+          <div className="mt-2 truncate font-mono text-[12px] tabular-nums">
+            <span className="text-brand-200">{rule.method}</span>{' '}
+            <span className="text-muted-200">{rule.path}</span>
           </div>
 
-          <div className="mt-2 flex items-center justify-between">
-            <div className="flex items-center gap-1.5 text-[10.5px] text-muted-300">
-              <span className="rounded border border-line px-1 py-[1px]">
-                {TYPE_LABEL.get(first.responseType) ?? first.responseType}
-              </span>
-              {rule.responses.length > 1 ? (
-                <span className="rounded border border-accent-400/30 bg-accent-400/10 px-1 py-[1px] text-accent-300">
-                  {enabledCount === 0 ? '全部停用' : `${enabledCount}/${rule.responses.length} 档`}
-                </span>
-              ) : null}
-              {first.delayMs > 0 || first.delayJitterMs > 0 ? (
-                <span className="rounded border border-amber-400/25 bg-amber-400/10 px-1 py-[1px] text-amber-300">
-                  {first.delayMs}
-                  {first.delayJitterMs > 0 ? `+${first.delayJitterMs}` : ''}ms
-                </span>
-              ) : null}
-            </div>
-            <div className="flex items-center gap-1">
-              <div
-                className={cn(
-                  'flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100',
-                  active && 'opacity-100',
-                )}
+          <div className="mt-2 flex items-center justify-between gap-2">
+            <span className="truncate font-mono text-[12px] text-muted-300">
+              {meta.join(' · ')}
+            </span>
+            <div
+              className={cn(
+                'flex shrink-0 items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100',
+                active && 'opacity-100',
+              )}
+            >
+              <button
+                type="button"
+                title="复制"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onDuplicate(rule);
+                }}
+                className="cursor-pointer rounded p-1 text-muted-300 transition-colors hover:bg-fill-strong hover:text-fg"
               >
-                <button
-                  type="button"
-                  title="复制"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    onDuplicate(rule);
-                  }}
-                  className="cursor-pointer rounded p-1 text-muted-300 hover:bg-fill-strong hover:text-muted-100"
-                >
-                  <Copy size={12} />
-                </button>
-                <button
-                  type="button"
-                  title="删除"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    onDelete(rule);
-                  }}
-                  className="cursor-pointer rounded p-1 text-muted-300 hover:bg-rose-500/20 hover:text-rose-300"
-                >
-                  <Trash2 size={12} />
-                </button>
-              </div>
-              <Switch
-                checked={rule.enabled}
-                onCheckedChange={(next) => onToggle(rule, next)}
-                title={rule.enabled ? '已启用' : '已停用'}
-              />
+                <Copy size={16} strokeWidth={1.5} />
+              </button>
+              <button
+                type="button"
+                title="删除"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onDelete(rule);
+                }}
+                className="cursor-pointer rounded p-1 text-muted-300 transition-colors hover:bg-fill-strong hover:text-danger"
+              >
+                <Trash2 size={16} strokeWidth={1.5} />
+              </button>
             </div>
           </div>
         </div>
@@ -189,21 +180,25 @@ export function RuleList({
   };
 
   return (
-    <aside className="flex h-full w-[290px] shrink-0 flex-col border-r border-line bg-ink-800/40">
-      <div className="space-y-2.5 border-b border-line p-3">
+    <aside className="flex max-h-[45vh] w-full shrink-0 flex-col border-b border-line bg-ink-800 lg:h-full lg:max-h-none lg:w-[264px] lg:border-b-0 lg:border-r">
+      <div className="space-y-3 border-b border-line p-4">
         <div className="flex items-center justify-between">
           <span className="panel-title">接口规则</span>
           <Button variant="ghost" size="icon" title="新建接口" onClick={onCreate}>
-            <Plus size={15} />
+            <Plus size={16} strokeWidth={1.5} />
           </Button>
         </div>
         <div className="relative">
-          <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-300" />
+          <Search
+            size={16}
+            strokeWidth={1.5}
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-300"
+          />
           <Input
             value={keyword}
             onChange={(event) => setKeyword(event.target.value)}
-            placeholder="搜索名称 / 路径 / 分组"
-            className="pl-7"
+            placeholder="搜索接口"
+            className="pl-9"
           />
         </div>
         <div className="flex flex-wrap gap-1">
@@ -213,9 +208,9 @@ export function RuleList({
               type="button"
               onClick={() => setMethod(item)}
               className={cn(
-                'cursor-pointer rounded-md border px-1.5 py-[2px] font-mono text-[10px] font-semibold transition-all',
+                'cursor-pointer rounded-md border px-1.5 py-1 font-mono text-[12px] transition-colors duration-150',
                 method === item
-                  ? 'border-brand-500/50 bg-brand-500/20 text-fg'
+                  ? 'border-brand-500/40 bg-brand-500/10 text-fg'
                   : 'border-line bg-fill text-muted-300 hover:text-muted-100',
               )}
             >
@@ -223,11 +218,11 @@ export function RuleList({
             </button>
           ))}
         </div>
-        <div className="flex items-center gap-1.5">
+        <div className="flex flex-wrap items-center gap-2">
           <Select
             value={group}
             onChange={(event) => setGroup(event.target.value)}
-            className="h-7 flex-1 text-[11.5px]"
+            className="h-8 w-full text-[13px]"
           >
             <option value="ALL">全部分组</option>
             {groups.map((item) => (
@@ -240,7 +235,7 @@ export function RuleList({
           <Select
             value={sortBy}
             onChange={(event) => setSortBy(event.target.value as 'recent' | 'path' | 'name')}
-            className="h-7 w-[108px] shrink-0 text-[11.5px]"
+            className="h-8 flex-1 text-[13px]"
           >
             <option value="recent">最近创建</option>
             <option value="path">按路径</option>
@@ -251,20 +246,20 @@ export function RuleList({
             title={grouped ? '关闭分组视图' : '按分组显示'}
             onClick={() => setGrouped(!grouped)}
             className={cn(
-              'flex h-7 cursor-pointer items-center justify-center rounded-lg border px-2 transition-colors',
+              'flex h-8 cursor-pointer items-center justify-center rounded-lg border px-2 transition-colors',
               grouped
-                ? 'border-brand-500/50 bg-brand-500/20 text-fg'
+                ? 'border-brand-500/40 bg-brand-500/10 text-fg'
                 : 'border-line text-muted-300 hover:text-muted-100',
             )}
           >
-            <FolderTree size={12} />
+            <FolderTree size={16} strokeWidth={1.5} />
           </button>
         </div>
       </div>
 
       <div className="flex-1 overflow-y-auto p-2">
         {filtered.length === 0 ? (
-          <p className="px-3 py-8 text-center text-[12px] leading-relaxed text-muted-300">
+          <p className="px-3 py-8 text-center text-[13px] leading-relaxed text-muted-300">
             没有匹配的规则
             <br />
             点击右上角 + 新建一个接口
@@ -273,20 +268,22 @@ export function RuleList({
           sections.map((section) => {
             const isCollapsed = collapsed[section.key] ?? false;
             return (
-              <div key={section.key || 'all'} className="mb-1">
+              <div key={section.key || 'all'} className="mb-2">
                 {section.label ? (
                   <button
                     type="button"
                     onClick={() =>
                       setCollapsed((current) => ({ ...current, [section.key]: !isCollapsed }))
                     }
-                    className="mb-1 flex w-full cursor-pointer items-center gap-1.5 px-1 py-1 text-left"
+                    className="mb-1 flex w-full cursor-pointer items-center gap-2 px-1 py-1 text-left"
                   >
-                    {isCollapsed ? <ChevronRight size={12} /> : <ChevronDown size={12} />}
-                    <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-300">
-                      {section.label}
-                    </span>
-                    <span className="rounded bg-fill px-1 text-[10px] text-muted-300">
+                    {isCollapsed ? (
+                      <ChevronRight size={16} strokeWidth={1.5} />
+                    ) : (
+                      <ChevronDown size={16} strokeWidth={1.5} />
+                    )}
+                    <span className="text-[12px] text-muted-300">{section.label}</span>
+                    <span className="font-mono text-[12px] text-muted-300">
                       {section.items.length}
                     </span>
                   </button>
@@ -300,11 +297,11 @@ export function RuleList({
         )}
       </div>
 
-      <div className="flex items-center justify-between border-t border-line px-3 py-2 text-[11px] text-muted-300">
+      <div className="flex items-center justify-between border-t border-line px-4 py-2 text-[12px] text-muted-300">
         <span>共 {filtered.length} 条</span>
         {conflicts.length > 0 ? (
-          <span className="flex items-center gap-1 text-amber-300">
-            <AlertTriangle size={11} />
+          <span className="flex items-center gap-1 text-warn">
+            <AlertTriangle size={16} strokeWidth={1.5} />
             {conflicts.length} 处重复
           </span>
         ) : null}

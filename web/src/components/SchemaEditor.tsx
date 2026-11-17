@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { FileJson, Loader2, Plus, Sparkles } from 'lucide-react';
+import { FileJson, Loader2, Play, Plus } from 'lucide-react';
 import type { ResponseConfig, SchemaField, SchemaRootType } from '@shared/types';
 import { Button } from './ui/button';
 import { Dialog } from './ui/dialog';
@@ -101,10 +101,10 @@ export function SchemaEditor({
     <div className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
-          <p className="text-[11.5px] text-muted-300">
+          <p className="text-[13px] text-muted-300">
             用字段树描述 JSON 结构，每次请求都会按规则随机生成（正则 / faker / 枚举）。
           </p>
-          <span className="text-[11.5px] text-muted-300">根节点：</span>
+          <span className="text-[13px] text-muted-300">根节点：</span>
           <Tabs
             value={root}
             onChange={(value: SchemaRootType) => onRootChange?.({ schemaRoot: value })}
@@ -114,13 +114,13 @@ export function SchemaEditor({
             ]}
           />
           {root === 'array' ? (
-            <span className="flex items-center gap-1 text-[11.5px] text-muted-300">
+            <span className="flex items-center gap-2 text-[13px] text-muted-300">
               数量
               <Input
                 type="number"
                 min={0}
                 value={rootMin}
-                className="h-7 w-[64px] font-mono"
+                className="w-[64px] font-mono"
                 onChange={(event) => onRootChange?.({ schemaRootMin: Number(event.target.value) })}
               />
               ~
@@ -128,27 +128,31 @@ export function SchemaEditor({
                 type="number"
                 min={0}
                 value={rootMax}
-                className="h-7 w-[64px] font-mono"
+                className="w-[64px] font-mono"
                 onChange={(event) => onRootChange?.({ schemaRootMax: Number(event.target.value) })}
               />
             </span>
           ) : null}
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="secondary" size="md" onClick={() => setImportOpen(true)}>
-            <FileJson size={13} />
+          <Button variant="secondary" onClick={() => setImportOpen(true)}>
+            <FileJson size={16} strokeWidth={1.5} />
             导入 JSON 示例
           </Button>
-          <Button variant="outline" size="md" onClick={() => void generate()} disabled={loading}>
-            {loading ? <Loader2 size={13} className="animate-spin" /> : <Sparkles size={13} />}
+          <Button variant="outline" onClick={() => void generate()} disabled={loading}>
+            {loading ? (
+              <Loader2 size={16} strokeWidth={1.5} className="animate-spin" />
+            ) : (
+              <Play size={16} strokeWidth={1.5} />
+            )}
             生成样例
           </Button>
         </div>
       </div>
 
-      <div className="space-y-1.5 rounded-xl border border-line bg-ink-900/40 p-2">
+      <div className="space-y-1 rounded-lg border border-line bg-fill p-2">
         {fields.length === 0 ? (
-          <p className="py-6 text-center text-[12px] text-muted-300">
+          <p className="py-6 text-center text-[13px] text-muted-300">
             还没有字段，可点击「添加字段」或「导入 JSON 示例」自动生成
           </p>
         ) : (
@@ -168,13 +172,13 @@ export function SchemaEditor({
           size="sm"
           onClick={() => onChange([...fields, createDefaultField('string', '')])}
         >
-          <Plus size={12} /> 添加字段
+          <Plus size={16} strokeWidth={1.5} /> 添加字段
         </Button>
       </div>
 
       {sample ? (
         <div className="animate-fade-in">
-          <p className="mb-1 text-[10.5px] uppercase tracking-[0.14em] text-muted-300">随机样例</p>
+          <p className="mb-1 text-[12px] text-muted-300">随机样例</p>
           <CodeEditor value={sample} language="json" height="220px" readOnly />
         </div>
       ) : null}
@@ -212,7 +216,7 @@ export function SchemaEditor({
           />
 
           <div className="flex flex-wrap items-center gap-2">
-            <span className="text-[11.5px] text-muted-300">字符串处理：</span>
+            <span className="text-[13px] text-muted-300">字符串处理：</span>
             <Tabs
               value={stringMode}
               onChange={setStringMode}
@@ -222,20 +226,20 @@ export function SchemaEditor({
                 hint: item.hint,
               }))}
             />
-            <span className="text-[11px] text-muted-300">
+            <span className="text-[12px] text-muted-300">
               {STRING_MODES.find((item) => item.value === stringMode)?.hint}
             </span>
           </div>
 
           <button
             type="button"
-            className="cursor-pointer text-[11.5px] text-brand-300 hover:underline"
+            className="cursor-pointer text-[13px] text-brand-200 hover:underline"
             onClick={() => setImportText(SAMPLE_INPUT)}
           >
             填入示例
           </button>
 
-          {importError ? <p className="text-[12px] text-rose-300">{importError}</p> : null}
+          {importError ? <p className="text-[13px] text-danger">{importError}</p> : null}
         </div>
       </Dialog>
     </div>

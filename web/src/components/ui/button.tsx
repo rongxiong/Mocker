@@ -5,25 +5,21 @@ import type { VariantProps } from 'class-variance-authority';
 import { cn } from '@/lib/utils';
 
 const buttonVariants = cva(
-  'inline-flex select-none items-center justify-center gap-1.5 whitespace-nowrap rounded-lg text-[12.5px] font-medium transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/60 disabled:pointer-events-none disabled:opacity-45 active:scale-[.97]',
+  'inline-flex select-none items-center justify-center gap-2 whitespace-nowrap rounded-lg text-[14px] font-medium transition-[background-color,border-color,color,transform] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/50 disabled:pointer-events-none disabled:opacity-45 active:scale-[0.98]',
   {
     variants: {
       variant: {
-        primary:
-          'bg-brand-gradient text-on-brand shadow-[0_8px_24px_-10px_rgba(124,92,255,.9)] hover:brightness-110',
-        secondary:
-          'border border-line-strong bg-fill text-muted-100 hover:border-line-strong hover:bg-fill-strong',
+        primary: 'bg-brand-500 text-on-brand hover:bg-brand-600',
+        secondary: 'border border-line bg-fill text-muted-100 hover:bg-fill-strong',
         ghost: 'text-muted-200 hover:bg-fill hover:text-muted-100',
-        outline:
-          'border border-brand-500/40 bg-brand-500/10 text-brand-200 hover:bg-brand-500/20 hover:text-fg',
-        danger:
-          'border border-rose-500/30 bg-rose-500/10 text-rose-300 hover:border-rose-500/50 hover:bg-rose-500/20',
+        outline: 'border border-brand-500/40 text-brand-200 hover:bg-fill',
+        danger: 'border border-line text-danger hover:bg-danger/10',
       },
       size: {
-        sm: 'h-7 px-2.5',
-        md: 'h-8 px-3',
-        lg: 'h-9 px-4 text-[13px]',
-        icon: 'h-7 w-7',
+        sm: 'h-8 px-2',
+        md: 'h-9 px-3',
+        lg: 'h-10 px-4',
+        icon: 'h-8 w-8',
       },
     },
     defaultVariants: { variant: 'secondary', size: 'md' },

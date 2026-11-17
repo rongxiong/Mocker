@@ -7,8 +7,8 @@ export const Input = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputE
     <input
       ref={ref}
       className={cn(
-        'h-8 w-full rounded-lg border border-line bg-ink-900/70 px-2.5 text-[12.5px] text-muted-100',
-        'placeholder:text-muted-300/70 transition-colors focus:border-brand-500/60 focus:outline-none focus:ring-1 focus:ring-brand-500/40',
+        'h-9 w-full min-w-0 rounded-lg border border-line bg-ink-800 px-3 text-[14px] text-muted-100',
+        'placeholder:text-muted-300 transition-colors focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500/40',
         'disabled:cursor-not-allowed disabled:opacity-50',
         className,
       )}
@@ -25,8 +25,8 @@ export const Textarea = forwardRef<
   <textarea
     ref={ref}
     className={cn(
-      'w-full rounded-lg border border-line bg-ink-900/70 px-2.5 py-2 text-[12.5px] text-muted-100',
-      'placeholder:text-muted-300/70 transition-colors focus:border-brand-500/60 focus:outline-none focus:ring-1 focus:ring-brand-500/40',
+      'w-full min-w-0 rounded-lg border border-line bg-ink-800 px-3 py-2 text-[14px] text-muted-100',
+      'placeholder:text-muted-300 transition-colors focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500/40',
       className,
     )}
     {...props}
@@ -39,8 +39,8 @@ export const Select = forwardRef<HTMLSelectElement, SelectHTMLAttributes<HTMLSel
     <select
       ref={ref}
       className={cn(
-        'select-chevron h-8 cursor-pointer appearance-none rounded-lg border border-line bg-ink-900/70 pl-2.5 pr-7 text-[12.5px] text-muted-100',
-        'transition-colors focus:border-brand-500/60 focus:outline-none focus:ring-1 focus:ring-brand-500/40',
+        'select-chevron h-9 min-w-0 cursor-pointer appearance-none rounded-lg border border-line bg-ink-800 pl-3 pr-8 text-[14px] text-muted-100',
+        'transition-colors focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500/40',
         '[&>option]:bg-ink-800 [&>option]:text-muted-100',
         className,
       )}

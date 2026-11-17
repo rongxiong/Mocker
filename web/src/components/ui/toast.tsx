@@ -63,11 +63,11 @@ export function ToastHost() {
           <div
             key={item.id}
             className={cn(
-              'glass-strong pointer-events-auto flex animate-slide-up items-start gap-2 rounded-xl border px-3 py-2.5 text-[12.5px] text-muted-100',
+              'glass-strong pointer-events-auto flex animate-slide-up items-start gap-2 rounded-lg px-3 py-2.5 text-[13px] text-muted-100',
               TONES[item.tone],
             )}
           >
-            <Icon size={15} className="mt-[1px] shrink-0" />
+            <Icon size={16} className="mt-px shrink-0" />
             <span className="leading-relaxed">{item.message}</span>
           </div>
         );

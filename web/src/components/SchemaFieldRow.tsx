@@ -140,7 +140,7 @@ export function SchemaFieldRow({
               onChange={(event) => patch({ max: Number(event.target.value) })}
             />
             {field.type === 'number' ? (
-              <span className="flex items-center gap-1 text-[11px] text-muted-300">
+              <span className="flex items-center gap-1 text-[12px] text-muted-300">
                 小数位
                 <Input
                   type="number"
@@ -156,7 +156,7 @@ export function SchemaFieldRow({
         );
       case 'boolean':
         return (
-          <span className="flex items-center gap-1.5 text-[11.5px] text-muted-300">
+          <span className="flex items-center gap-1.5 text-[13px] text-muted-300">
             true 概率
             <Input
               type="number"
@@ -206,7 +206,7 @@ export function SchemaFieldRow({
         );
       case 'array':
         return (
-          <span className="flex items-center gap-1.5 text-[11.5px] text-muted-300">
+          <span className="flex items-center gap-1.5 text-[13px] text-muted-300">
             元素数量
             <Input
               type="number"
@@ -227,7 +227,7 @@ export function SchemaFieldRow({
         );
       default:
         return (
-          <span className="text-[11.5px] text-muted-300">
+          <span className="text-[13px] text-muted-300">
             {field.type === 'object'
               ? `${(field.children ?? []).length} 个子字段`
               : '自动生成随机值'}
@@ -241,7 +241,7 @@ export function SchemaFieldRow({
       {depth > 0 ? (
         <span className="absolute left-[6px] top-0 h-full w-px bg-fill-strong" aria-hidden />
       ) : null}
-      <div className="group rounded-xl border border-line bg-fill/40 p-2 transition-colors hover:border-line-strong hover:bg-fill">
+      <div className="group rounded-lg border border-line bg-fill p-2 transition-colors hover:border-line-strong">
         <div className="flex items-center gap-1.5">
           <div className="flex flex-shrink-0 items-center gap-1.5">
             {expandable ? (
@@ -250,7 +250,11 @@ export function SchemaFieldRow({
                 onClick={() => setOpen(!open)}
                 className="cursor-pointer rounded p-0.5 text-muted-300 transition-colors hover:bg-fill-strong hover:text-muted-100"
               >
-                {open ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
+                {open ? (
+                  <ChevronDown size={16} strokeWidth={1.5} />
+                ) : (
+                  <ChevronRight size={16} strokeWidth={1.5} />
+                )}
               </button>
             ) : (
               <span className="w-[18px]" />
@@ -259,9 +263,7 @@ export function SchemaFieldRow({
 
           <div className="flex flex-1 flex-wrap items-center gap-1.5">
             {isItem ? (
-              <span className="rounded-md border border-accent-400/30 bg-accent-400/10 px-1.5 py-[1px] font-mono text-[10.5px] text-accent-300">
-                item
-              </span>
+              <span className="font-mono text-[12px] text-brand-200">item</span>
             ) : (
               <Input
                 value={field.name}
@@ -284,12 +286,12 @@ export function SchemaFieldRow({
             </Select>
 
             {!isItem ? (
-              <span className="flex items-center gap-1 text-[11px] text-muted-300">
+              <span className="flex items-center gap-1 text-[12px] text-muted-300">
                 <button
                   type="button"
                   onClick={() => patch({ optional: !field.optional })}
                   className={cn(
-                    'cursor-pointer rounded-md border px-1.5 py-[1px] transition-colors',
+                    'cursor-pointer rounded-md border px-2 py-1 text-[12px] transition-colors',
                     field.optional
                       ? 'border-warn/40 bg-warn/15 text-warn'
                       : 'border-line text-muted-300 hover:text-muted-100',
@@ -325,7 +327,7 @@ export function SchemaFieldRow({
                 title="删除字段"
                 onClick={onRemove}
               >
-                <Trash2 size={13} className="text-muted-300 hover:text-rose-300" />
+                <Trash2 size={16} strokeWidth={1.5} className="text-muted-300 hover:text-danger" />
               </Button>
             </div>
           ) : null}
@@ -363,7 +365,7 @@ export function SchemaFieldRow({
                     })
                   }
                 >
-                  <Plus size={12} /> 子字段
+                  <Plus size={16} strokeWidth={1.5} /> 子字段
                 </Button>
               </>
             ) : (

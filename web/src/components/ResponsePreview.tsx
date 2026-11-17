@@ -27,10 +27,10 @@ interface ResponsePreviewProps {
 }
 
 function statusTone(status: number): string {
-  if (status < 300) return 'border-emerald-400/30 bg-emerald-400/15 text-emerald-300';
-  if (status < 400) return 'border-sky-400/30 bg-sky-400/15 text-sky-300';
-  if (status < 500) return 'border-amber-400/30 bg-amber-400/15 text-amber-300';
-  return 'border-rose-400/30 bg-rose-400/15 text-rose-300';
+  if (status < 300) return 'text-ok';
+  if (status < 400) return 'text-info';
+  if (status < 500) return 'text-warn';
+  return 'text-danger';
 }
 
 function KvRows({
@@ -53,7 +53,7 @@ function KvRows({
           <Input
             value={row.key}
             placeholder={keyPlaceholder}
-            className="h-7 font-mono"
+            className="font-mono text-[13px]"
             onChange={(event) =>
               onChange(
                 rows.map((item, i) => (i === index ? { ...item, key: event.target.value } : item)),
@@ -63,7 +63,7 @@ function KvRows({
           <Input
             value={row.value}
             placeholder={valuePlaceholder}
-            className="h-7 font-mono"
+            className="font-mono text-[13px]"
             onChange={(event) =>
               onChange(
                 rows.map((item, i) =>
@@ -78,12 +78,12 @@ function KvRows({
             title="删除"
             onClick={() => onChange(rows.filter((_, i) => i !== index))}
           >
-            <Trash2 size={12} className="text-muted-300" />
+            <Trash2 size={16} strokeWidth={1.5} className="text-muted-300" />
           </Button>
         </div>
       ))}
       <Button variant="ghost" size="sm" onClick={() => onChange([...rows, { key: '', value: '' }])}>
-        <Plus size={11} />
+        <Plus size={16} strokeWidth={1.5} />
         {addLabel}
       </Button>
     </div>
@@ -194,29 +194,29 @@ export function ResponsePreview({ rule, baseUrl, refreshToken = 0 }: ResponsePre
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex items-center justify-between border-b border-line px-3 py-2">
+      <div className="flex items-center justify-between border-b border-line px-4 py-3">
         <span className="panel-title">响应预览</span>
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-2">
           {loading ? (
-            <Loader2 size={13} className="animate-spin text-brand-300" />
+            <Loader2 size={16} strokeWidth={1.5} className="animate-spin text-brand-200" />
           ) : (
             preview?.durationMs !== undefined && (
-              <span className="flex items-center gap-1 font-mono text-[11px] text-muted-300">
-                <Clock size={11} />
+              <span className="mono-line flex items-center gap-1 text-muted-300">
+                <Clock size={16} strokeWidth={1.5} />
                 {preview.durationMs}ms
               </span>
             )
           )}
           <Button variant="ghost" size="icon" title="重新生成" onClick={() => void run()}>
-            <RefreshCw size={13} />
+            <RefreshCw size={16} strokeWidth={1.5} />
           </Button>
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-3">
+      <div className="flex-1 overflow-y-auto p-4">
         {showSlots ? (
-          <div className="mb-3 flex items-center gap-1.5">
-            <span className="text-[10.5px] uppercase tracking-[0.14em] text-muted-300">响应</span>
+          <div className="mb-3 flex items-center gap-2">
+            <span className="text-[13px] text-muted-300">响应</span>
             <div className="flex flex-wrap gap-1">
               {slots.map((slot, index) => (
                 <button
@@ -225,9 +225,9 @@ export function ResponsePreview({ rule, baseUrl, refreshToken = 0 }: ResponsePre
                   title={`${slot.label || `第 ${index + 1} 档响应`}${slot.enabled === false ? '（已停用，仅供查看）' : ''}`}
                   onClick={() => setResponseIndex(index)}
                   className={cn(
-                    'cursor-pointer rounded-md border px-1.5 py-[2px] text-[10.5px] transition-colors',
+                    'cursor-pointer rounded-md border px-2 py-1 font-mono text-[12px] transition-colors duration-150',
                     responseIndex === index
-                      ? 'border-brand-500/50 bg-brand-500/20 text-fg'
+                      ? 'border-brand-500/40 bg-brand-500/10 text-fg'
                       : 'border-line text-muted-300 hover:text-muted-100',
                     slot.enabled === false && 'opacity-55 line-through',
                   )}
@@ -242,35 +242,35 @@ export function ResponsePreview({ rule, baseUrl, refreshToken = 0 }: ResponsePre
           </div>
         ) : null}
 
-        <div className="mb-3 rounded-xl border border-line bg-fill">
+        <div className="mb-4 rounded-lg border border-line bg-fill">
           <button
             type="button"
             onClick={() => setOpenRequest(!openRequest)}
-            className="flex w-full cursor-pointer items-center gap-1.5 px-2.5 py-2 text-left"
+            className="flex w-full cursor-pointer items-center gap-2 px-3 py-2.5 text-left"
           >
-            {openRequest ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
-            <Send size={12} className="text-brand-300" />
-            <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-300">
-              请求参数
-            </span>
+            {openRequest ? (
+              <ChevronDown size={16} strokeWidth={1.5} className="text-muted-300" />
+            ) : (
+              <ChevronRight size={16} strokeWidth={1.5} className="text-muted-300" />
+            )}
+            <Send size={16} strokeWidth={1.5} className="text-muted-300" />
+            <span className="text-[13px] font-medium text-muted-100">请求参数</span>
           </button>
 
           {openRequest ? (
-            <div className="space-y-2.5 border-t border-line px-2.5 py-2.5">
+            <div className="space-y-3 border-t border-line px-3 py-3">
               {pathParams.length > 0 ? (
                 <div>
-                  <p className="mb-1 text-[10.5px] uppercase tracking-[0.14em] text-muted-300">
-                    Path params
-                  </p>
+                  <p className="mb-1 text-[12px] text-muted-300">Path params</p>
                   <div className="space-y-1">
                     {pathParams.map((name) => (
                       <div key={name} className="flex items-center gap-1.5">
-                        <span className="w-[74px] shrink-0 truncate font-mono text-[11px] text-accent-300">
+                        <span className="w-[74px] shrink-0 truncate font-mono text-[12px] text-brand-200">
                           :{name}
                         </span>
                         <Input
                           value={paramValues[name] ?? ''}
-                          className="h-7 font-mono"
+                          className="font-mono text-[13px]"
                           placeholder="值"
                           onChange={(event) =>
                             setParamValues((current) => ({
@@ -286,9 +286,7 @@ export function ResponsePreview({ rule, baseUrl, refreshToken = 0 }: ResponsePre
               ) : null}
 
               <div>
-                <p className="mb-1 text-[10.5px] uppercase tracking-[0.14em] text-muted-300">
-                  Query
-                </p>
+                <p className="mb-1 text-[12px] text-muted-300">Query</p>
                 <KvRows
                   rows={queryRows}
                   onChange={setQueryRows}
@@ -299,9 +297,7 @@ export function ResponsePreview({ rule, baseUrl, refreshToken = 0 }: ResponsePre
               </div>
 
               <div>
-                <p className="mb-1 text-[10.5px] uppercase tracking-[0.14em] text-muted-300">
-                  Headers
-                </p>
+                <p className="mb-1 text-[12px] text-muted-300">Headers</p>
                 <KvRows
                   rows={headerRows}
                   onChange={setHeaderRows}
@@ -313,9 +309,7 @@ export function ResponsePreview({ rule, baseUrl, refreshToken = 0 }: ResponsePre
 
               {!BODYLESS_METHODS.includes(rule.method) ? (
                 <div>
-                  <p className="mb-1 text-[10.5px] uppercase tracking-[0.14em] text-muted-300">
-                    Body
-                  </p>
+                  <p className="mb-1 text-[12px] text-muted-300">Body</p>
                   <CodeEditor
                     value={body}
                     language="json"
@@ -326,8 +320,8 @@ export function ResponsePreview({ rule, baseUrl, refreshToken = 0 }: ResponsePre
                 </div>
               ) : null}
 
-              <p className="break-all font-mono text-[10.5px] text-muted-300">
-                {rule.method} {resolvedPath}
+              <p className="mono-line break-all">
+                <span className="text-brand-200">{rule.method}</span> {resolvedPath}
                 {queryString ? `?${queryString}` : ''}
               </p>
             </div>
@@ -335,11 +329,11 @@ export function ResponsePreview({ rule, baseUrl, refreshToken = 0 }: ResponsePre
         </div>
 
         {preview?.error ? (
-          <div className="mb-3 flex gap-2 rounded-xl border border-rose-500/30 bg-rose-500/10 p-3 text-[12px] text-rose-200">
-            <AlertTriangle size={15} className="mt-[1px] shrink-0" />
+          <div className="mb-4 flex gap-2 rounded-lg border border-line bg-fill p-3 text-[13px] text-muted-200">
+            <AlertTriangle size={16} strokeWidth={1.5} className="mt-px shrink-0 text-danger" />
             <div>
-              <p className="font-medium">生成失败</p>
-              <p className="mt-1 break-all font-mono text-[11px] text-rose-300">{preview.error}</p>
+              <p className="font-medium text-fg">生成失败</p>
+              <p className="mt-1 break-all font-mono text-[12px] text-danger">{preview.error}</p>
             </div>
           </div>
         ) : null}
@@ -352,17 +346,17 @@ export function ResponsePreview({ rule, baseUrl, refreshToken = 0 }: ResponsePre
         ) : null}
 
         {preview ? (
-          <div className="space-y-3 animate-fade-in">
-            <div className="flex flex-wrap items-center gap-2">
+          <div className="space-y-4 animate-fade-in">
+            <div className="flex flex-wrap items-center gap-3 rounded-lg border border-line border-l-2 border-l-brand-500 bg-accent-soft px-3 py-3">
               <span
                 className={cn(
-                  'rounded-md border px-2 py-0.5 font-mono text-[11.5px] font-semibold',
+                  'font-mono text-[24px] font-medium leading-none tabular-nums',
                   statusTone(preview.status),
                 )}
               >
                 {preview.status}
               </span>
-              <span className="font-mono text-[11px] text-muted-300">{preview.contentType}</span>
+              <span className="mono-line text-muted-300">{preview.contentType}</span>
               <div className="ml-auto flex items-center gap-2">
                 <button
                   type="button"
@@ -379,7 +373,7 @@ export function ResponsePreview({ rule, baseUrl, refreshToken = 0 }: ResponsePre
                     );
                     toast('已复制 HTTPie 命令', 'info');
                   }}
-                  className="cursor-pointer text-[11px] text-muted-300 transition-colors hover:text-brand-300"
+                  className="cursor-pointer text-[13px] text-muted-300 transition-colors hover:text-brand-200"
                 >
                   复制 HTTPie
                 </button>
@@ -389,7 +383,7 @@ export function ResponsePreview({ rule, baseUrl, refreshToken = 0 }: ResponsePre
                     copyText(preview.body);
                     toast('响应内容已复制', 'info');
                   }}
-                  className="cursor-pointer text-[11px] text-muted-300 transition-colors hover:text-brand-300"
+                  className="cursor-pointer text-[13px] text-muted-300 transition-colors hover:text-brand-200"
                 >
                   复制响应
                 </button>
@@ -397,14 +391,12 @@ export function ResponsePreview({ rule, baseUrl, refreshToken = 0 }: ResponsePre
             </div>
 
             <div>
-              <p className="mb-1 text-[10.5px] uppercase tracking-[0.14em] text-muted-300">
-                Headers
-              </p>
+              <p className="mb-1 text-[12px] text-muted-300">Headers</p>
               <div className="overflow-hidden rounded-lg border border-line">
                 {Object.entries(preview.headers).map(([key, value]) => (
                   <div
                     key={key}
-                    className="grid grid-cols-[130px_1fr] gap-2 border-b border-line px-2 py-1 font-mono text-[11px] last:border-b-0"
+                    className="grid grid-cols-[130px_1fr] gap-2 border-b border-line px-3 py-1.5 font-mono text-[12px] last:border-b-0"
                   >
                     <span className="truncate text-brand-200">{key}</span>
                     <span className="break-all text-muted-200">{value}</span>
@@ -414,9 +406,9 @@ export function ResponsePreview({ rule, baseUrl, refreshToken = 0 }: ResponsePre
             </div>
 
             <div>
-              <p className="mb-1 text-[10.5px] uppercase tracking-[0.14em] text-muted-300">Body</p>
+              <p className="mb-1 text-[12px] text-muted-300">Body</p>
               {preview.isBinary && !preview.body.startsWith('{') ? (
-                <div className="rounded-xl border border-line bg-ink-900/60 p-3 text-[12px] text-muted-200">
+                <div className="rounded-lg border border-line bg-fill p-3 text-[13px] text-muted-200">
                   二进制响应（{preview.body}），请在文件库中确认文件内容。
                 </div>
               ) : (

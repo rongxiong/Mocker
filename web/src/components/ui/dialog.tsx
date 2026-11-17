@@ -39,22 +39,22 @@ export function Dialog({
         type="button"
         aria-label="Close dialog"
         onClick={onClose}
-        className="absolute inset-0 cursor-default bg-ink-900/70 backdrop-blur-sm animate-fade-in-fast"
+        className="absolute inset-0 cursor-default bg-ink-900/70 animate-fade-in-fast"
       />
-      <div className={cn('glass-strong relative w-full animate-slide-up rounded-2xl p-5', width)}>
+      <div className={cn('glass-strong relative w-full animate-slide-up rounded-xl p-5', width)}>
         <div className="mb-4 flex items-start justify-between gap-4">
           <div>
-            <h2 className="text-[15px] font-semibold text-muted-100">{title}</h2>
+            <h2 className="text-[16px] font-medium text-fg">{title}</h2>
             {description ? (
-              <p className="mt-1 text-[12px] leading-relaxed text-muted-200">{description}</p>
+              <p className="mt-1 text-[13px] leading-relaxed text-muted-200">{description}</p>
             ) : null}
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-md p-1 text-muted-300 transition-colors hover:bg-fill-strong hover:text-muted-100"
+            className="rounded-md p-1 text-muted-300 transition-colors hover:bg-fill hover:text-muted-100"
           >
-            <X size={15} />
+            <X size={16} strokeWidth={1.5} />
           </button>
         </div>
         {children}

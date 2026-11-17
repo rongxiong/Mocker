@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { PanelBottomClose, Radio, Sparkles, X } from 'lucide-react';
+import { PanelBottomClose, Plus, Radio, X } from 'lucide-react';
 import type { MockRule, RuleConflict } from '@shared/types';
 import { RuleList } from '@/components/RuleList';
 import { RuleEditor } from '@/components/RuleEditor';
@@ -113,7 +113,7 @@ export function RulesPage({
   }, [autoSave, dirty, nameConflict, draft, saving, onSave]);
 
   return (
-    <div className="flex h-full min-h-0">
+    <div className="flex h-full min-h-0 flex-col lg:flex-row">
       <RuleList
         rules={rules}
         selectedId={selectedRule?.id ?? null}
@@ -145,16 +145,16 @@ export function RulesPage({
             }}
             onDelete={() => onDelete(draft)}
           />
-          <div className="hidden w-[400px] shrink-0 border-l border-line bg-ink-800/40 xl:block">
+          <div className="hidden w-[380px] shrink-0 border-l border-line bg-ink-800 xl:block">
             <ResponsePreview rule={draft} baseUrl={baseUrl} refreshToken={refreshToken} />
           </div>
 
           <button
             type="button"
             onClick={() => setDrawerOpen(true)}
-            className="fixed bottom-5 right-5 z-30 flex cursor-pointer items-center gap-1.5 rounded-full bg-brand-gradient px-4 py-2.5 text-[12.5px] font-medium text-on-brand shadow-[0_12px_30px_-10px_rgba(124,92,255,.9)] transition-transform hover:scale-105 xl:hidden"
+            className="fixed bottom-5 right-5 z-30 flex cursor-pointer items-center gap-2 rounded-lg border border-line bg-ink-800 px-4 py-2 text-[14px] font-medium text-muted-100 shadow-panel transition-colors hover:bg-fill xl:hidden"
           >
-            <PanelBottomClose size={14} />
+            <PanelBottomClose size={16} strokeWidth={1.5} />
             响应预览
           </button>
 
@@ -164,13 +164,13 @@ export function RulesPage({
                 type="button"
                 aria-label="关闭预览"
                 onClick={() => setDrawerOpen(false)}
-                className="absolute inset-0 cursor-default bg-ink-900/70 backdrop-blur-sm animate-fade-in-fast"
+                className="absolute inset-0 cursor-default bg-ink-900/70 animate-fade-in-fast"
               />
-              <div className="glass-strong absolute inset-x-0 bottom-0 flex h-[72vh] animate-slide-up flex-col rounded-t-2xl">
-                <div className="flex items-center justify-between border-b border-line px-3 py-2">
+              <div className="glass-strong absolute inset-x-0 bottom-0 flex h-[72vh] animate-slide-up flex-col rounded-t-xl">
+                <div className="flex items-center justify-between border-b border-line px-4 py-3">
                   <span className="panel-title">响应预览</span>
                   <Button variant="ghost" size="icon" onClick={() => setDrawerOpen(false)}>
-                    <X size={14} />
+                    <X size={16} strokeWidth={1.5} />
                   </Button>
                 </div>
                 <div className="min-h-0 flex-1">
@@ -182,17 +182,17 @@ export function RulesPage({
         </>
       ) : (
         <section className="flex flex-1 flex-col items-center justify-center gap-3 text-center">
-          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-gradient/20 shadow-glow">
-            <Radio size={24} className="text-brand-300" />
+          <div className="flex h-12 w-12 items-center justify-center rounded-xl border border-line bg-fill">
+            <Radio size={16} strokeWidth={1.5} className="text-muted-300" />
           </div>
-          <h2 className="text-[15px] font-semibold text-muted-100">还没有选中接口</h2>
-          <p className="max-w-[340px] text-[12.5px] leading-relaxed text-muted-200">
+          <h2 className="text-[16px] font-medium text-fg">还没有选中接口</h2>
+          <p className="max-w-[340px] text-[13px] leading-relaxed text-muted-200">
             从左侧选择一个接口编辑，或者新建一个 Mock 接口：设置方法、路径、延迟与响应内容，
             保存后即可通过 Base URL 立即访问。
           </p>
-          <Button variant="primary" size="lg" onClick={onCreate}>
-            <Sparkles size={14} />
-            新建第一个接口
+          <Button variant="primary" onClick={onCreate}>
+            <Plus size={16} strokeWidth={1.5} />
+            新建接口
           </Button>
         </section>
       )}

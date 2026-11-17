@@ -12,7 +12,7 @@ export function Tabs<T extends string>({ value, onChange, items, className }: Ta
   return (
     <div
       className={cn(
-        'inline-flex items-center gap-1 rounded-xl border border-line bg-ink-900/60 p-1',
+        'inline-flex flex-wrap items-center gap-1 rounded-lg border border-line bg-fill p-1',
         className,
       )}
     >
@@ -25,10 +25,10 @@ export function Tabs<T extends string>({ value, onChange, items, className }: Ta
             title={item.hint}
             onClick={() => onChange(item.value)}
             className={cn(
-              'relative rounded-lg px-3 py-1.5 text-[12px] font-medium transition-all duration-200',
+              'rounded-md px-3 py-1.5 text-[13px] font-medium transition-colors duration-150',
               active
-                ? 'bg-brand-500/20 text-fg shadow-[inset_0_0_0_1px_rgba(124,92,255,.45)]'
-                : 'text-muted-200 hover:bg-fill hover:text-muted-100',
+                ? 'bg-ink-800 text-fg shadow-panel'
+                : 'text-muted-200 hover:bg-fill-strong hover:text-muted-100',
             )}
           >
             {item.label}

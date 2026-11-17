@@ -45,22 +45,18 @@ export function BasicSettings({
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div>
           <Label htmlFor="rule-name">接口名称</Label>
           <Input
             id="rule-name"
             value={rule.name}
             placeholder="例如：用户详情"
-            className={
-              nameConflict
-                ? 'border-rose-400/60 focus:border-rose-400/70 focus:ring-rose-400/30'
-                : undefined
-            }
+            className={nameConflict ? 'border-danger focus:border-danger' : undefined}
             onChange={(event) => onChange({ name: event.target.value })}
           />
           {nameConflict ? (
-            <p className="mt-1 text-[11px] text-rose-300">已存在同名接口，请更换名称后再保存</p>
+            <p className="mt-1 text-[12px] text-danger">已存在同名接口，请更换名称后再保存</p>
           ) : null}
         </div>
         <div>
@@ -72,7 +68,7 @@ export function BasicSettings({
             onChange={(event) => onChange({ description: event.target.value })}
           />
         </div>
-        <div>
+        <div className="sm:col-span-2">
           <Label htmlFor="rule-group">分组</Label>
           <Input
             id="rule-group"
@@ -89,7 +85,7 @@ export function BasicSettings({
         </div>
       </div>
 
-      <div className="grid grid-cols-[130px_1fr] gap-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-[130px_1fr]">
         <div>
           <Label htmlFor="rule-method">HTTP 方法</Label>
           <Select
@@ -134,13 +130,13 @@ export function BasicSettings({
           </Select>
         </div>
         <div className="flex items-center gap-2 pb-1">
-          <span className="text-[11px] uppercase tracking-wider text-muted-300">启用</span>
+          <span className="text-[13px] text-muted-300">启用</span>
           <Switch checked={rule.enabled} onCheckedChange={(enabled) => onChange({ enabled })} />
         </div>
       </div>
 
       {rule.abort !== 'none' ? (
-        <p className="rounded-lg border border-amber-400/25 bg-amber-400/10 px-2.5 py-1.5 text-[11.5px] text-amber-200">
+        <p className="rounded-lg border border-line bg-fill px-3 py-2 text-[13px] text-muted-200">
           {ABORT_MODES.find((item) => item.value === rule.abort)?.hint}
         </p>
       ) : null}
@@ -153,19 +149,19 @@ export function BasicSettings({
             className="flex min-w-0 flex-1 cursor-pointer items-center gap-2 text-left"
           >
             {openConditions && conditionsEnabled ? (
-              <ChevronDown size={13} />
+              <ChevronDown size={16} strokeWidth={1.5} />
             ) : (
-              <ChevronRight size={13} />
+              <ChevronRight size={16} strokeWidth={1.5} />
             )}
-            <Filter size={12} className="text-brand-300" />
-            <span className="text-[12px] font-medium text-muted-100">条件匹配</span>
+            <Filter size={16} strokeWidth={1.5} className="text-muted-300" />
+            <span className="text-[14px] font-medium text-fg">条件匹配</span>
             {conditions.length > 0 ? (
-              <span className="rounded-md bg-brand-500/20 px-1.5 text-[10.5px] text-brand-200">
+              <span className="rounded bg-fill px-1.5 font-mono text-[12px] text-muted-300">
                 {conditions.length}
               </span>
             ) : null}
           </button>
-          <span className="hidden truncate text-[11px] text-muted-300 md:inline">
+          <span className="hidden truncate text-[12px] text-muted-300 md:inline">
             {conditionsEnabled ? '全部满足才命中该规则' : '不参与匹配'}
           </span>
           <Switch
@@ -178,7 +174,7 @@ export function BasicSettings({
         {conditionsEnabled && openConditions ? (
           <div className="mt-2 space-y-1.5">
             {conditions.length === 0 ? (
-              <p className="text-[11.5px] text-muted-300">
+              <p className="text-[13px] text-muted-300">
                 无条件是默认命中。添加条件后，可让同一路径按 query / header / body 返回不同内容。
               </p>
             ) : null}
@@ -202,7 +198,7 @@ export function BasicSettings({
                 <Input
                   value={condition.key}
                   placeholder={condition.source === 'body' ? 'user.type' : 'key'}
-                  className="h-8 w-[130px] font-mono"
+                  className="w-[130px] font-mono"
                   onChange={(event) => patchCondition(condition.id, { key: event.target.value })}
                 />
                 <Select
@@ -220,8 +216,8 @@ export function BasicSettings({
                 </Select>
                 <Input
                   value={condition.value}
-                  placeholder={condition.op === 'exists' ? '（无需填值）' : 'value'}
-                  className="h-8 flex-1 font-mono"
+                  placeholder={condition.op === 'exists' ? '无需填值' : 'value'}
+                  className="flex-1 font-mono"
                   disabled={condition.op === 'exists'}
                   onChange={(event) => patchCondition(condition.id, { value: event.target.value })}
                 />
@@ -234,7 +230,7 @@ export function BasicSettings({
                     })
                   }
                 >
-                  <Trash2 size={12} className="text-muted-300" />
+                  <Trash2 size={16} strokeWidth={1.5} className="text-muted-300" />
                 </Button>
               </div>
             ))}
@@ -243,19 +239,19 @@ export function BasicSettings({
               size="sm"
               onClick={() => onChange({ conditions: [...conditions, newCondition()] })}
             >
-              <Plus size={12} /> 添加条件
+              <Plus size={16} strokeWidth={1.5} /> 添加条件
             </Button>
           </div>
         ) : null}
 
         {conditionsEnabled ? null : (
-          <p className="mt-2 text-[11.5px] text-muted-300">
+          <p className="mt-2 text-[13px] text-muted-300">
             已关闭：规则不再检查任何请求条件，所有请求都返回默认响应。已填条件会保留，重新打开开关即恢复。
           </p>
         )}
       </div>
 
-      <p className="font-mono text-[11px] text-muted-300">
+      <p className="font-mono text-[12px] text-muted-300">
         规则 ID：{rule.id.slice(0, 8)} · 更新于 {new Date(rule.updatedAt).toLocaleString()}
       </p>
     </div>

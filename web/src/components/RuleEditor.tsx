@@ -96,18 +96,14 @@ export function RuleEditor({
   );
 
   return (
-    <section className="flex h-full min-w-0 flex-1 flex-col">
-      <div className="flex items-center gap-2 border-b border-line px-4 py-2.5">
+    <section className="flex min-h-0 min-w-0 flex-1 flex-col">
+      <div className="flex flex-wrap items-center gap-3 border-b border-line px-4 py-3">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
-            <h2 className="truncate text-[15px] font-semibold text-muted-100">
+            <h2 className="truncate text-[16px] font-medium text-fg">
               {rule.name || '未命名接口'}
             </h2>
-            {dirty ? (
-              <span className="rounded-md border border-amber-400/30 bg-amber-400/10 px-1.5 py-[1px] text-[10.5px] text-amber-300">
-                未保存
-              </span>
-            ) : null}
+            {dirty ? <span className="text-[12px] text-warn">未保存</span> : null}
           </div>
           <button
             type="button"
@@ -115,18 +111,19 @@ export function RuleEditor({
               copyText(url);
               toast('已复制完整 Mock URL', 'info');
             }}
-            className="mt-0.5 flex cursor-pointer items-center gap-1 font-mono text-[11.5px] text-muted-300 transition-colors hover:text-brand-300"
+            className="mt-1 flex min-w-0 cursor-pointer items-center gap-2 font-mono text-[12px] tabular-nums text-muted-300 transition-colors hover:text-brand-200"
           >
-            <Link2 size={11} />
-            {rule.method} {url}
-            <Copy size={11} />
+            <Link2 size={16} strokeWidth={1.5} className="shrink-0" />
+            <span className="truncate">
+              {rule.method} {url}
+            </span>
+            <Copy size={16} strokeWidth={1.5} className="shrink-0" />
           </button>
         </div>
 
         <div className="flex items-center gap-2">
           <Button
             variant="ghost"
-            size="md"
             title="复制 HTTPie 命令"
             onClick={() => {
               // 响应头/响应体是返回给客户端的内容，不能作为请求内容拼进命令
@@ -134,21 +131,20 @@ export function RuleEditor({
               toast('已复制 HTTPie 命令', 'info');
             }}
           >
-            <Terminal size={13} />
+            <Terminal size={16} strokeWidth={1.5} />
             HTTPie
           </Button>
-          <Button variant="ghost" size="md" onClick={onDelete}>
-            <Trash2 size={13} />
+          <Button variant="ghost" onClick={onDelete}>
+            <Trash2 size={16} strokeWidth={1.5} />
             删除
           </Button>
           <Button
             variant="primary"
-            size="md"
             onClick={onSave}
             disabled={saving || !jsonOk || nameConflict}
             title={nameConflict ? '接口名称与其他规则重复，请先更换名称' : undefined}
           >
-            <Save size={13} />
+            <Save size={16} strokeWidth={1.5} />
             {saving ? '保存中…' : '保存'}
           </Button>
         </div>
@@ -156,8 +152,8 @@ export function RuleEditor({
 
       <div className="min-h-0 flex-1 overflow-y-auto p-4">
         {conflict ? (
-          <div className="mb-3 flex items-start gap-2 rounded-xl border border-amber-400/30 bg-amber-400/10 px-3 py-2 text-[12px] text-amber-200">
-            <AlertTriangle size={14} className="mt-[1px] shrink-0" />
+          <div className="mb-4 flex items-start gap-2 rounded-lg border border-line bg-fill px-3 py-2 text-[13px] text-muted-200">
+            <AlertTriangle size={16} strokeWidth={1.5} className="mt-px shrink-0 text-warn" />
             <span>
               存在 {conflict.ids.length} 条相同规则{' '}
               <span className="font-mono">{conflict.key}</span>
@@ -167,7 +163,7 @@ export function RuleEditor({
           </div>
         ) : null}
 
-        <div className="glass rounded-2xl p-4">
+        <div className="glass rounded-xl p-4">
           <p className="panel-title mb-3">基础配置</p>
           <BasicSettings
             rule={rule}
@@ -177,11 +173,11 @@ export function RuleEditor({
           />
         </div>
 
-        <div className="glass mt-4 rounded-2xl p-4">
+        <div className="glass mt-4 rounded-xl p-4">
           <div className="mb-3 flex flex-wrap items-center gap-2">
             <div className="flex items-center gap-2">
               <p className="panel-title">响应</p>
-              <span className="rounded-md bg-brand-500/20 px-1.5 text-[10.5px] text-brand-200">
+              <span className="rounded bg-fill px-1.5 font-mono text-[12px] text-muted-300">
                 {enabledCount === responses.length
                   ? `${responses.length} 档`
                   : `${enabledCount}/${responses.length} 档启用`}
@@ -199,9 +195,9 @@ export function RuleEditor({
                   title={`${item.label || `第 ${position + 1} 档响应`}${enabled ? '' : '（已停用）'}`}
                   onClick={() => setActiveIndex(position)}
                   className={cn(
-                    'cursor-pointer rounded-md border px-2 py-1 text-[11px] transition-colors',
+                    'cursor-pointer rounded-md border px-2 py-1.5 font-mono text-[12px] transition-colors duration-150',
                     position === index
-                      ? 'border-brand-500/50 bg-brand-500/20 text-fg'
+                      ? 'border-brand-500/40 bg-brand-500/10 text-fg'
                       : 'border-line text-muted-300 hover:text-muted-100',
                     !enabled && 'opacity-55 line-through',
                   )}
@@ -213,7 +209,7 @@ export function RuleEditor({
               );
             })}
             <Button variant="ghost" size="sm" onClick={addResponse}>
-              <Plus size={12} /> 添加响应
+              <Plus size={16} strokeWidth={1.5} /> 添加响应
             </Button>
             {multiple ? (
               <Button
@@ -226,20 +222,20 @@ export function RuleEditor({
                     .catch(() => toast('重置失败', 'error'));
                 }}
               >
-                <RotateCcw size={12} /> 重置计数
+                <RotateCcw size={16} strokeWidth={1.5} /> 重置计数
               </Button>
             ) : null}
           </div>
 
-          <div className="mb-2 flex flex-wrap items-center gap-2">
-            <div className="flex items-center gap-1.5">
+          <div className="mb-3 flex flex-wrap items-center gap-2">
+            <div className="flex items-center gap-2">
               <Switch
                 title={active.enabled === false ? '启用该档' : '停用该档（配置保留）'}
                 aria-label="当前档启用开关"
                 checked={active.enabled !== false}
                 onCheckedChange={(value) => patchResponse(index, { enabled: value })}
               />
-              <span className="text-[11px] text-muted-200">启用该档</span>
+              <span className="text-[13px] text-muted-200">启用该档</span>
             </div>
             {multiple ? (
               <Button
@@ -248,18 +244,18 @@ export function RuleEditor({
                 title={index === 0 ? '删除默认档（下一档自动成为默认）' : '删除该档响应'}
                 onClick={() => removeResponse(index)}
               >
-                <Trash2 size={12} /> 删除该档
+                <Trash2 size={16} strokeWidth={1.5} /> 删除该档
               </Button>
             ) : null}
-            <span className="ml-2 text-[11px] uppercase tracking-wider text-muted-300">备注</span>
+            <span className="ml-2 text-[13px] text-muted-300">备注</span>
             <Input
               value={active.label}
-              placeholder="如：首次成功 / 再次失败"
-              className="h-7 max-w-[280px]"
+              placeholder="首次成功 / 再次失败"
+              className="max-w-[280px]"
               onChange={(event) => patchResponse(index, { label: event.target.value })}
             />
           </div>
-          <p className="mb-3 text-[11px] text-muted-300">
+          <p className="mb-3 text-[12px] leading-relaxed text-muted-300">
             {hint}
             {multiple ? ' 任意档可删；删掉默认档后下一档自动成为默认。' : ''}
           </p>
