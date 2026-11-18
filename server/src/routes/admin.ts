@@ -41,9 +41,24 @@ import { uid } from '../defaults';
 
 export const adminRouter = Router();
 
+/** Console-only manual ordering of the rule list, stored as a JSON id array. */
+const RULE_ORDER_KEY = 'ruleOrder';
+
+export function readRuleOrder(): string[] {
+  const raw = getSetting(RULE_ORDER_KEY);
+  if (!raw) return [];
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter((id): id is string => typeof id === 'string');
+  } catch {
+    return [];
+  }
+}
+
 adminRouter.get('/rules', (_req: Request, res: Response) => {
   const rules = listRules();
-  res.json({ rules, conflicts: findConflicts(rules) });
+  res.json({ rules, conflicts: findConflicts(rules), order: readRuleOrder() });
 });
 
 adminRouter.get('/settings', (_req: Request, res: Response) => {
@@ -86,6 +101,19 @@ adminRouter.post('/rules', (req: Request, res: Response) => {
   }
   insertRule(rule);
   res.status(201).json({ rule });
+});
+
+// Must precede `PUT /rules/:id`, otherwise Express treats `order` as an id.
+adminRouter.put('/rules/order', (req: Request, res: Response) => {
+  const payload = (req.body ?? {}) as { order?: unknown };
+  if (!Array.isArray(payload.order) || payload.order.some((id) => typeof id !== 'string')) {
+    res.status(400).json({ error: 'order 必须是规则 id 的字符串数组' });
+    return;
+  }
+  // Deduplicate defensively; unknown / stale ids are harmless and pruned by the client.
+  const order = [...new Set(payload.order as string[])];
+  setSetting(RULE_ORDER_KEY, JSON.stringify(order));
+  res.json({ order });
 });
 
 adminRouter.put('/rules/:id', (req: Request, res: Response) => {

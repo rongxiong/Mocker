@@ -12,11 +12,13 @@ import { Button } from '@/components/ui/button';
 import { api, ApiError } from '@/lib/api';
 import type { ServerInfo } from '@/lib/api';
 import { createDefaultRule } from '@shared/defaults';
+import { reconcileOrder } from '@/lib/ruleOrder';
 
 export default function App() {
   const [view, setView] = useState<ViewKey>('rules');
   const [info, setInfo] = useState<ServerInfo | null>(null);
   const [rules, setRules] = useState<MockRule[]>([]);
+  const [ruleOrder, setRuleOrder] = useState<string[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -44,6 +46,9 @@ export default function App() {
     [rules],
   );
 
+  // Canonical display order: prune stale ids and surface newly created rules.
+  const canonicalOrder = useMemo(() => reconcileOrder(rules, ruleOrder), [rules, ruleOrder]);
+
   const baseUrl = `${window.location.origin}${info?.mockPrefix ?? ''}`;
 
   const toggleAutoSave = (next: boolean) => {
@@ -61,8 +66,9 @@ export default function App() {
   const loadRules = () => {
     api
       .listRules()
-      .then(({ rules: list, conflicts: found }) => {
+      .then(({ rules: list, conflicts: found, order }) => {
         setRules(list);
+        setRuleOrder(order ?? []);
         setConflicts(found);
         setSelectedId((current) =>
           current && list.some((rule) => rule.id === current) ? current : (list[0]?.id ?? null),
@@ -90,6 +96,7 @@ export default function App() {
       while (usedNames.has(`接口 ${seq}`)) seq += 1;
       const rule = await api.createRule(createDefaultRule({ name: `接口 ${seq}` }));
       setRules((current) => [rule, ...current]);
+      setRuleOrder((current) => [rule.id, ...current.filter((id) => id !== rule.id)]);
       setSelectedId(rule.id);
       setConflicts(await api.listRules().then((data) => data.conflicts));
       setView('rules');
@@ -120,6 +127,7 @@ export default function App() {
       await api.deleteRule(rule.id);
       const next = rules.filter((item) => item.id !== rule.id);
       setRules(next);
+      setRuleOrder((current) => current.filter((id) => id !== rule.id));
       if (selectedId === rule.id) setSelectedId(null);
       setPendingDelete(null);
       setConflicts(await api.listRules().then((data) => data.conflicts));
@@ -133,6 +141,7 @@ export default function App() {
     try {
       const copy = await api.duplicateRule(rule.id);
       setRules((current) => [copy, ...current]);
+      setRuleOrder((current) => [copy.id, ...current.filter((id) => id !== copy.id)]);
       setSelectedId(copy.id);
       setConflicts(await api.listRules().then((data) => data.conflicts));
       toast('已复制规则', 'success');
@@ -147,6 +156,19 @@ export default function App() {
     );
     await api.updateRule(rule.id, { enabled }).catch(() => toast('切换启用状态失败', 'error'));
   };
+
+  // Optimistic: the list reorders instantly; a failed save rolls back to the
+  // server-side order so the UI never diverges silently from what is stored.
+  const handleReorder = useCallback(async (nextOrder: string[]) => {
+    setRuleOrder(nextOrder);
+    try {
+      const { order } = await api.reorderRules(nextOrder);
+      setRuleOrder(order);
+    } catch (error) {
+      toast(error instanceof ApiError ? error.message : '排序保存失败', 'error');
+      loadRules();
+    }
+  }, []);
 
   const handleExport = async () => {
     const data = await api.exportAll().catch(() => null);
@@ -225,6 +247,8 @@ export default function App() {
                 autoSave={autoSave}
                 conflicts={conflicts}
                 groups={groups}
+                order={canonicalOrder}
+                onReorder={handleReorder}
                 onSelect={setSelectedId}
                 onCreate={() => void handleCreate()}
                 onDelete={setPendingDelete}

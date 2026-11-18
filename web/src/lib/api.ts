@@ -60,7 +60,13 @@ export interface ServerInfo {
 export const api = {
   info: () => request<ServerInfo>('/info'),
 
-  listRules: () => request<{ rules: MockRule[]; conflicts: RuleConflict[] }>('/rules'),
+  listRules: () =>
+    request<{ rules: MockRule[]; conflicts: RuleConflict[]; order: string[] }>('/rules'),
+  reorderRules: (order: string[]) =>
+    request<{ order: string[] }>('/rules/order', {
+      method: 'PUT',
+      body: JSON.stringify({ order }),
+    }),
   getSettings: async () =>
     (await request<{ settings: Record<string, string> }>('/settings')).settings,
   updateSettings: async (patch: Record<string, string>) =>

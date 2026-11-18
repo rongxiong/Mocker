@@ -1,6 +1,6 @@
 import { all, get, run } from './index';
 
-export const SETTING_KEYS = ['proxyTarget'] as const;
+export const SETTING_KEYS = ['proxyTarget', 'ruleOrder'] as const;
 export type SettingKey = (typeof SETTING_KEYS)[number];
 
 export function getSetting(key: SettingKey, fallback = ''): string {

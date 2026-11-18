@@ -102,6 +102,37 @@ describe('admin API', () => {
     expect(list.conflicts[0]?.ids).toHaveLength(2);
   });
 
+  it('persists the manual rule order and serves it back with the list', async () => {
+    const first = await createRule({ name: 'First' });
+    const second = await createRule({ name: 'Second' });
+
+    const initial = (await (await fetch(`${base}/__api/rules`)).json()) as { order: string[] };
+    expect(initial.order).toEqual([]);
+
+    // Duplicated ids are collapsed; the route must not be swallowed by /rules/:id.
+    const save = await fetch(`${base}/__api/rules/order`, {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ order: [second.id, first.id, second.id] }),
+    });
+    expect(save.status).toBe(200);
+    expect((await save.json()) as { order: string[] }).toEqual({
+      order: [second.id, first.id],
+    });
+
+    const reloaded = (await (await fetch(`${base}/__api/rules`)).json()) as { order: string[] };
+    expect(reloaded.order).toEqual([second.id, first.id]);
+  });
+
+  it('rejects a malformed manual order payload', async () => {
+    const bad = await fetch(`${base}/__api/rules/order`, {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ order: ['ok', 42] }),
+    });
+    expect(bad.status).toBe(400);
+  });
+
   it('duplicates a rule with a fresh id', async () => {
     const source = await createRule({ name: 'Source' });
     const response = await fetch(`${base}/__api/rules/${source.id}/duplicate`, { method: 'POST' });

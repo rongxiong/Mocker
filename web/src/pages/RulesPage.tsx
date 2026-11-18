@@ -16,6 +16,8 @@ interface RulesPageProps {
   autoSave: boolean;
   conflicts: RuleConflict[];
   groups: string[];
+  order: string[];
+  onReorder: (order: string[]) => void;
   onSelect: (id: string) => void;
   onCreate: () => void;
   onDelete: (rule: MockRule) => void;
@@ -32,6 +34,8 @@ export function RulesPage({
   autoSave,
   conflicts,
   groups,
+  order,
+  onReorder,
   onSelect,
   onCreate,
   onDelete,
@@ -119,6 +123,8 @@ export function RulesPage({
         selectedId={selectedRule?.id ?? null}
         conflicts={conflicts}
         groups={groups}
+        order={order}
+        onReorder={onReorder}
         onSelect={(id) => guard(() => onSelect(id))}
         onCreate={() => guard(onCreate)}
         onToggle={onToggle}
