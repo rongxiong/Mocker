@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Check, FileCode2, Info, Plus, Timer, Trash2, Upload } from 'lucide-react';
+import { Check, FileCode2, Info, Maximize2, Plus, Timer, Trash2, Upload } from 'lucide-react';
 import type {
   EnvelopeType,
   HeaderEntry,
@@ -16,6 +16,7 @@ import { COMMON_STATUS_CODES, ENVELOPES, RESPONSE_TYPES, bodyForType } from '@/l
 import { api } from '@/lib/api';
 import { isValidJson } from '@/lib/utils';
 import { toast } from './ui/toast';
+import { Dialog } from './ui/dialog';
 
 interface ResponseEditorProps {
   response: ResponseEntry;
@@ -25,6 +26,7 @@ interface ResponseEditorProps {
 /** Edits one full response slot: status/headers/type/body are all per-slot. */
 export function ResponseEditor({ response, onChange }: ResponseEditorProps) {
   const [files, setFiles] = useState<UploadedFile[]>([]);
+  const [expanded, setExpanded] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
 
   const loadFiles = () => {
@@ -41,6 +43,140 @@ export function ResponseEditor({ response, onChange }: ResponseEditorProps) {
   const jsonOk = response.responseType !== 'json' || isValidJson(response.body);
 
   const patchHeaders = (headers: HeaderEntry[]) => onChange({ headers });
+
+  // File responses have no editable body, so there is nothing to enlarge.
+  const canExpand = response.responseType !== 'file';
+  const typeLabel =
+    RESPONSE_TYPES.find((item) => item.value === response.responseType)?.label ?? '';
+
+  /** Shared by the inline panel and the enlarged window dialog. */
+  const renderBody = (editorHeight: string) => {
+    if (response.responseType === 'json') {
+      return (
+        <div className="space-y-2">
+          <CodeEditor
+            value={response.body}
+            language="json"
+            height={editorHeight}
+            onChange={(value) => onChange({ body: value })}
+          />
+          <div className="flex items-center gap-2 text-[13px]">
+            {jsonOk ? (
+              <span className="flex items-center gap-2 text-ok">
+                <Check size={16} strokeWidth={1.5} /> JSON 合法
+              </span>
+            ) : (
+              <span className="text-danger">JSON 解析失败，保存后仍会原样返回</span>
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    if (response.responseType === 'html') {
+      return (
+        <CodeEditor
+          value={response.body}
+          language="html"
+          height={editorHeight}
+          onChange={(value) => onChange({ body: value })}
+        />
+      );
+    }
+
+    if (response.responseType === 'javascript') {
+      return (
+        <div className="space-y-2">
+          <CodeEditor
+            value={response.body}
+            language="javascript"
+            height={editorHeight}
+            onChange={(value) => onChange({ body: value })}
+          />
+          <div className="flex flex-wrap items-center gap-2 rounded-lg border border-line bg-fill px-3 py-2 text-[13px] text-muted-200">
+            <Info size={16} strokeWidth={1.5} className="text-muted-300" />
+            <span>
+              可用变量：<code className="font-mono text-fg">req</code>（method / path / params /
+              query / headers / cookies / body）、
+              <code className="font-mono text-fg">console</code>、
+              <code className="font-mono text-fg">faker</code>、
+              <code className="font-mono text-fg">RandExp</code>、
+              <code className="font-mono text-fg">uuid()</code>、
+              <code className="font-mono text-fg">require()</code>
+            </span>
+            <span className="text-muted-300">
+              require 白名单：faker, randexp, uuid, path, url, util, crypto, querystring
+            </span>
+          </div>
+        </div>
+      );
+    }
+
+    if (response.responseType === 'schema') {
+      return (
+        <SchemaEditor
+          fields={response.schema ?? []}
+          onChange={(schema) => onChange({ schema })}
+          root={response.schemaRoot ?? 'object'}
+          rootMin={response.schemaRootMin ?? 2}
+          rootMax={response.schemaRootMax ?? 5}
+          onRootChange={(patch) => onChange(patch)}
+        />
+      );
+    }
+
+    return (
+      <div className="space-y-3">
+        <div className="flex items-center gap-2">
+          <Select
+            value={response.fileId}
+            className="w-full max-w-[420px]"
+            onChange={(event) => onChange({ fileId: event.target.value })}
+          >
+            <option value="">选择一个文件…</option>
+            {files.map((file) => (
+              <option key={file.id} value={file.id}>
+                {file.name} · {file.mime}
+              </option>
+            ))}
+          </Select>
+          <input
+            ref={fileInput}
+            type="file"
+            className="hidden"
+            onChange={(event) => {
+              const file = event.target.files?.[0];
+              if (file) {
+                api
+                  .uploadFile(file)
+                  .then((uploaded) => {
+                    onChange({ fileId: uploaded.id });
+                    loadFiles();
+                    toast(`已上传 ${uploaded.name}`, 'success');
+                  })
+                  .catch(() => toast('上传失败', 'error'));
+              }
+              event.target.value = '';
+            }}
+          />
+          <Button variant="secondary" onClick={() => fileInput.current?.click()}>
+            <Upload size={16} strokeWidth={1.5} />
+            上传文件
+          </Button>
+        </div>
+        {response.fileId ? (
+          <p className="text-[13px] text-muted-300">
+            将按文件扩展名自动推断 Content-Type；可到「文件库」页面下载或替换。
+          </p>
+        ) : (
+          <div className="flex items-center gap-2 rounded-lg border border-line bg-fill p-4 text-[13px] text-muted-300">
+            <FileCode2 size={16} strokeWidth={1.5} />
+            还没有选择文件，上传后即可作为响应体返回（支持二进制）。
+          </div>
+        )}
+      </div>
+    );
+  };
 
   return (
     <div className="space-y-3">
@@ -174,20 +310,32 @@ export function ResponseEditor({ response, onChange }: ResponseEditorProps) {
       <div className="border-t border-line pt-3">
         <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
           <p className="panel-title">响应内容</p>
-          <Tabs
-            value={response.responseType}
-            onChange={(value: ResponseType) =>
-              onChange({
-                responseType: value,
-                body: bodyForType(response.responseType, value, response.body),
-              })
-            }
-            items={RESPONSE_TYPES.map((item) => ({
-              value: item.value,
-              label: item.label,
-              hint: item.hint,
-            }))}
-          />
+          <div className="flex items-center gap-2">
+            {canExpand ? (
+              <Button
+                variant="ghost"
+                size="sm"
+                title="在大窗口中编辑响应内容"
+                onClick={() => setExpanded(true)}
+              >
+                <Maximize2 size={16} strokeWidth={1.5} /> 窗口编辑
+              </Button>
+            ) : null}
+            <Tabs
+              value={response.responseType}
+              onChange={(value: ResponseType) =>
+                onChange({
+                  responseType: value,
+                  body: bodyForType(response.responseType, value, response.body),
+                })
+              }
+              items={RESPONSE_TYPES.map((item) => ({
+                value: item.value,
+                label: item.label,
+                hint: item.hint,
+              }))}
+            />
+          </div>
         </div>
 
         <p className="mb-3 flex items-center gap-2 text-[13px] text-muted-300">
@@ -195,124 +343,18 @@ export function ResponseEditor({ response, onChange }: ResponseEditorProps) {
           {RESPONSE_TYPES.find((item) => item.value === response.responseType)?.hint}
         </p>
 
-        {response.responseType === 'json' ? (
-          <div className="space-y-2">
-            <CodeEditor
-              value={response.body}
-              language="json"
-              height="300px"
-              onChange={(value) => onChange({ body: value })}
-            />
-            <div className="flex items-center gap-2 text-[13px]">
-              {jsonOk ? (
-                <span className="flex items-center gap-2 text-ok">
-                  <Check size={16} strokeWidth={1.5} /> JSON 合法
-                </span>
-              ) : (
-                <span className="text-danger">JSON 解析失败，保存后仍会原样返回</span>
-              )}
-            </div>
-          </div>
-        ) : null}
-
-        {response.responseType === 'html' ? (
-          <CodeEditor
-            value={response.body}
-            language="html"
-            height="300px"
-            onChange={(value) => onChange({ body: value })}
-          />
-        ) : null}
-
-        {response.responseType === 'javascript' ? (
-          <div className="space-y-2">
-            <CodeEditor
-              value={response.body}
-              language="javascript"
-              height="300px"
-              onChange={(value) => onChange({ body: value })}
-            />
-            <div className="flex flex-wrap items-center gap-2 rounded-lg border border-line bg-fill px-3 py-2 text-[13px] text-muted-200">
-              <Info size={16} strokeWidth={1.5} className="text-muted-300" />
-              <span>
-                可用变量：<code className="font-mono text-fg">req</code>（method / path / params /
-                query / headers / cookies / body）、
-                <code className="font-mono text-fg">console</code>、
-                <code className="font-mono text-fg">faker</code>、
-                <code className="font-mono text-fg">RandExp</code>、
-                <code className="font-mono text-fg">uuid()</code>、
-                <code className="font-mono text-fg">require()</code>
-              </span>
-              <span className="text-muted-300">
-                require 白名单：faker, randexp, uuid, path, url, util, crypto, querystring
-              </span>
-            </div>
-          </div>
-        ) : null}
-
-        {response.responseType === 'schema' ? (
-          <SchemaEditor
-            fields={response.schema ?? []}
-            onChange={(schema) => onChange({ schema })}
-            root={response.schemaRoot ?? 'object'}
-            rootMin={response.schemaRootMin ?? 2}
-            rootMax={response.schemaRootMax ?? 5}
-            onRootChange={(patch) => onChange(patch)}
-          />
-        ) : null}
-
-        {response.responseType === 'file' ? (
-          <div className="space-y-3">
-            <div className="flex items-center gap-2">
-              <Select
-                value={response.fileId}
-                className="w-full max-w-[420px]"
-                onChange={(event) => onChange({ fileId: event.target.value })}
-              >
-                <option value="">选择一个文件…</option>
-                {files.map((file) => (
-                  <option key={file.id} value={file.id}>
-                    {file.name} · {file.mime}
-                  </option>
-                ))}
-              </Select>
-              <input
-                ref={fileInput}
-                type="file"
-                className="hidden"
-                onChange={(event) => {
-                  const file = event.target.files?.[0];
-                  if (file) {
-                    api
-                      .uploadFile(file)
-                      .then((uploaded) => {
-                        onChange({ fileId: uploaded.id });
-                        loadFiles();
-                        toast(`已上传 ${uploaded.name}`, 'success');
-                      })
-                      .catch(() => toast('上传失败', 'error'));
-                  }
-                  event.target.value = '';
-                }}
-              />
-              <Button variant="secondary" onClick={() => fileInput.current?.click()}>
-                <Upload size={16} strokeWidth={1.5} />
-                上传文件
-              </Button>
-            </div>
-            {response.fileId ? (
-              <p className="text-[13px] text-muted-300">
-                将按文件扩展名自动推断 Content-Type；可到「文件库」页面下载或替换。
-              </p>
-            ) : (
-              <div className="flex items-center gap-2 rounded-lg border border-line bg-fill p-4 text-[13px] text-muted-300">
-                <FileCode2 size={16} strokeWidth={1.5} />
-                还没有选择文件，上传后即可作为响应体返回（支持二进制）。
-              </div>
-            )}
-          </div>
-        ) : null}
+        {renderBody('300px')}
       </div>
+
+      <Dialog
+        open={expanded}
+        title={`响应内容 · ${typeLabel}`}
+        description="大窗口模式下编辑，内容与表单实时同步，关闭后无需额外保存（仍需点击页面上的保存）。"
+        width="max-w-5xl"
+        onClose={() => setExpanded(false)}
+      >
+        {renderBody('62vh')}
+      </Dialog>
     </div>
   );
 }
