@@ -17,6 +17,7 @@ import { api } from '@/lib/api';
 import { isValidJson } from '@/lib/utils';
 import { toast } from './ui/toast';
 import { Dialog } from './ui/dialog';
+import { ConditionEditor } from './ConditionEditor';
 
 interface ResponseEditorProps {
   response: ResponseEntry;
@@ -180,6 +181,18 @@ export function ResponseEditor({ response, onChange }: ResponseEditorProps) {
 
   return (
     <div className="space-y-3">
+      <ConditionEditor
+        divider={false}
+        conditions={response.conditions ?? []}
+        conditionsEnabled={response.conditionsEnabled !== false}
+        onChange={(conditions) => onChange({ conditions })}
+        onEnabledChange={(conditionsEnabled) => onChange({ conditionsEnabled })}
+        title="档位条件匹配"
+        activeHint="全部满足才返回该档"
+        emptyHint="无条件档参与序列轮询；添加条件后，只有全部满足时本档才会优先返回。"
+        disabledHint="已关闭：本档不检查请求条件，按无条件档参与序列。已填条件会保留，重新打开开关即恢复。"
+      />
+
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <div>
           <Label htmlFor="response-status" className="flex items-center gap-1">

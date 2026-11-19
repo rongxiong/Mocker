@@ -94,6 +94,10 @@ export interface ResponseEntry extends ResponseConfig {
   label: string;
   /** when false the slot is kept but skipped by real requests */
   enabled: boolean;
+  /** when off, `conditions` are kept but the slot counts as unconditional */
+  conditionsEnabled?: boolean;
+  /** all conditions must match for the slot to win over unconditional ones */
+  conditions?: RuleCondition[];
 }
 
 /** A v2 backup's sequence entry: only three overrides, empty means "inherit". */

@@ -1,12 +1,18 @@
-import type { MockRequestSnapshot, MockRule, RuleCondition } from '../types';
+import type { MockRequestSnapshot, RuleCondition } from '../types';
+
+/** Both a rule and a response slot can own conditions. */
+export interface ConditionOwner {
+  conditionsEnabled?: boolean;
+  conditions?: RuleCondition[];
+}
 
 /**
- * A rule only takes part in condition matching while its condition switch is
- * on. Switching it off parks the conditions and lets the rule behave like a
- * plain catch-all serving the response config above.
+ * A rule / slot only takes part in condition matching while its condition
+ * switch is on. Switching it off parks the conditions and lets the owner
+ * behave like a plain catch-all.
  */
-export function hasEffectiveConditions(rule: MockRule): boolean {
-  return rule.conditionsEnabled !== false && (rule.conditions?.length ?? 0) > 0;
+export function hasEffectiveConditions(owner: ConditionOwner): boolean {
+  return owner.conditionsEnabled !== false && (owner.conditions?.length ?? 0) > 0;
 }
 
 function pickByPath(source: unknown, path: string): unknown {
@@ -75,7 +81,7 @@ function testValue(condition: RuleCondition, values: string[]): boolean {
   }
 }
 
-/** Every condition must pass (AND) for the rule to be selected. */
+/** Every condition must pass (AND) for the rule / response slot to be selected. */
 export function matchesConditions(
   conditions: RuleCondition[] | undefined,
   req: MockRequestSnapshot,

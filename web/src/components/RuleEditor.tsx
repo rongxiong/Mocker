@@ -1,6 +1,17 @@
 import { useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, Copy, Link2, Plus, RotateCcw, Save, Terminal, Trash2 } from 'lucide-react';
+import {
+  AlertTriangle,
+  Copy,
+  Filter,
+  Link2,
+  Plus,
+  RotateCcw,
+  Save,
+  Terminal,
+  Trash2,
+} from 'lucide-react';
 import type { MockRule, ResponseEntry, RuleConflict } from '@shared/types';
+import { hasEffectiveConditions } from '@shared/services/conditions';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Switch } from './ui/switch';
@@ -9,8 +20,8 @@ import { ResponseEditor } from './ResponseEditor';
 import { api } from '@/lib/api';
 import { buildHttpie, cn, copyText, isValidJson } from '@/lib/utils';
 import { toast } from './ui/toast';
-import { createResponseEntry, uid } from '@shared/defaults';
-import { nextActiveIndex, removeSlot } from '@/lib/responseSlots';
+import { createResponseEntry } from '@shared/defaults';
+import { duplicateSlot, nextActiveIndex, removeSlot } from '@/lib/responseSlots';
 
 interface RuleEditorProps {
   rule: MockRule;
@@ -50,17 +61,30 @@ export function RuleEditor({
   const active: ResponseEntry = responses[index] ?? createResponseEntry();
   const multiple = responses.length > 1;
   const enabledCount = responses.filter((item) => item.enabled !== false).length;
-  const cycling = enabledCount > 1;
+  const conditionCount = responses.filter(
+    (item) => item.enabled !== false && hasEffectiveConditions(item),
+  ).length;
+  const plainCount = responses.filter(
+    (item) => item.enabled !== false && !hasEffectiveConditions(item),
+  ).length;
   const hint =
     enabledCount === 0
       ? '全部档位已停用：仍返回第 1 档作为兜底。'
       : !multiple
-        ? '每档都是完整响应配置；添加响应即可组成序列。'
-        : !cycling
-          ? '只有 1 档启用：每次请求都固定返回这一档，不轮询。'
-          : enabledCount < responses.length
-            ? `已启用 ${enabledCount}/${responses.length} 档；停用档跳过轮询、配置保留，其余按顺序循环返回。`
-            : '每档都是完整配置；按顺序循环返回第 1、2、3… 档，然后重复。';
+        ? conditionCount > 0
+          ? '当前只有一档：条件未命中时仍会兜底返回它；添加更多响应档才能形成条件分支。'
+          : '每档都是完整响应配置；添加响应即可组成序列。'
+        : conditionCount === 0
+          ? enabledCount > 1
+            ? enabledCount < responses.length
+              ? `已启用 ${enabledCount}/${responses.length} 档；停用档跳过轮询、配置保留，其余按顺序循环返回。`
+              : '每档都是完整配置；按顺序循环返回第 1、2、3… 档，然后重复。'
+            : '只有 1 档启用：每次请求都固定返回这一档，不轮询。'
+          : plainCount === 0
+            ? '所有启用档都带条件：命中时优先返回；全部未命中时用第 1 个启用档兜底，不轮询。'
+            : plainCount > 1
+              ? `有 ${conditionCount} 个条件档：命中时优先返回且不推动轮询计数；${plainCount} 个无条件档按顺序循环返回。`
+              : `有 ${conditionCount} 个条件档：命中时优先返回且不推动轮询计数；未命中时固定返回唯一的无条件档。`;
 
   const patchResponse = (target: number, patch: Partial<ResponseEntry>) =>
     onChange({
@@ -70,15 +94,7 @@ export function RuleEditor({
     });
 
   const addResponse = () => {
-    const copy: ResponseEntry = {
-      ...active,
-      id: uid(),
-      label: '',
-      enabled: true,
-      headers: active.headers.map((header) => ({ ...header })),
-      schema: structuredClone(active.schema),
-    };
-    onChange({ responses: [...responses, copy] });
+    onChange({ responses: [...responses, duplicateSlot(active)] });
     setActiveIndex(responses.length);
   };
 
@@ -188,14 +204,15 @@ export function RuleEditor({
           <div className="mb-3 flex flex-wrap items-center gap-1.5 border-b border-line pb-3">
             {responses.map((item, position) => {
               const enabled = item.enabled !== false;
+              const conditional = hasEffectiveConditions(item);
               return (
                 <button
                   key={item.id}
                   type="button"
-                  title={`${item.label || `第 ${position + 1} 档响应`}${enabled ? '' : '（已停用）'}`}
+                  title={`${item.label || `第 ${position + 1} 档响应`}${conditional ? '（有条件）' : ''}${enabled ? '' : '（已停用）'}`}
                   onClick={() => setActiveIndex(position)}
                   className={cn(
-                    'cursor-pointer rounded-md border px-2 py-1.5 font-mono text-[12px] transition-colors duration-150',
+                    'flex cursor-pointer items-center gap-1 rounded-md border px-2 py-1.5 font-mono text-[12px] transition-colors duration-150',
                     position === index
                       ? 'border-brand-500/40 bg-brand-500/10 text-fg'
                       : 'border-line text-muted-300 hover:text-muted-100',
@@ -205,6 +222,7 @@ export function RuleEditor({
                   #{position + 1}
                   {position === 0 ? ' 默认' : ''}
                   {item.label ? ` ${item.label}` : ''}
+                  {conditional ? <Filter size={12} strokeWidth={1.5} /> : null}
                 </button>
               );
             })}

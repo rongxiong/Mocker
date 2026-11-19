@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { matchesConditions } from '../server/src/services/conditions';
+import { hasEffectiveConditions, matchesConditions } from '../server/src/services/conditions';
 import type { MockRequestSnapshot, RuleCondition } from '../server/src/types';
 
 const request = (overrides: Partial<MockRequestSnapshot> = {}): MockRequestSnapshot => ({
@@ -20,6 +20,17 @@ const cond = (partial: Partial<RuleCondition>): RuleCondition => ({
   op: 'eq',
   value: 'vip',
   ...partial,
+});
+
+describe('hasEffectiveConditions', () => {
+  it('works for both rules and response slots', () => {
+    expect(hasEffectiveConditions({})).toBe(false);
+    expect(hasEffectiveConditions({ conditions: [] })).toBe(false);
+    expect(hasEffectiveConditions({ conditions: [cond({})] })).toBe(true);
+    expect(hasEffectiveConditions({ conditions: [cond({})], conditionsEnabled: false })).toBe(
+      false,
+    );
+  });
 });
 
 describe('matchesConditions', () => {

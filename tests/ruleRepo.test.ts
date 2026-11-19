@@ -87,6 +87,8 @@ describe('rule CRUD', () => {
           headers: [{ key: 'X-Token', value: 'abc' }],
           schema: [{ id: 'f1', name: 'id', type: 'int', min: 1, max: 2 }],
           envelope: 'codeData',
+          conditions: [{ id: 's1', source: 'header', key: 'x-env', op: 'eq', value: 'vip' }],
+          conditionsEnabled: false,
         }),
         createResponseEntry({ label: '失败', statusCode: 500, body: '{}', enabled: false }),
       ],
@@ -104,8 +106,12 @@ describe('rule CRUD', () => {
       headers: [{ key: 'X-Token', value: 'abc' }],
       schema: [{ id: 'f1', name: 'id', type: 'int', min: 1, max: 2 }],
       envelope: 'codeData',
+      conditions: [{ id: 's1', source: 'header', key: 'x-env', op: 'eq', value: 'vip' }],
+      conditionsEnabled: false,
     });
     expect(stored?.responses[0]?.enabled).toBe(true);
+    expect(stored?.responses[1]?.conditions).toEqual([]);
+    expect(stored?.responses[1]?.conditionsEnabled).toBe(true);
     expect(stored?.responses[1]).toMatchObject({
       label: '失败',
       statusCode: 500,

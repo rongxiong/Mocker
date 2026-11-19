@@ -3,7 +3,8 @@ import type { NextFunction, Request, Response } from 'express';
 import { matchAll } from '../services/matcher';
 import { buildResponse, delayFor, sleep } from '../services/responder';
 import { hasEffectiveConditions, matchesConditions } from '../services/conditions';
-import { resolveResponseIndex } from '../services/sequence';
+import { resolveResponseIndex, selectResponseIndexes } from '../services/sequence';
+import { responseAt } from '../defaults';
 import { recordLog } from '../services/logStore';
 import { getSetting } from '../db/settingsRepo';
 import { MOCK_PREFIX } from '../config';
@@ -229,9 +230,13 @@ mockRouter.use(async (req: Request, res: Response, next: NextFunction) => {
   }
 
   if (match.rule.abort === 'close') {
-    // Connection failures bypass the sequence, but use the same clamped
-    // delay + jitter calculation as a normal response.
-    await sleep(delayFor(match.rule));
+    // Connection failures bypass the sequence counter, but use the same
+    // clamped delay + jitter as the slot this request would have hit.
+    const delayConfig = responseAt(
+      match.rule,
+      selectResponseIndexes(match.rule, reqSnapshot).indexes[0] ?? 0,
+    );
+    await sleep(delayFor(delayConfig));
     logger.info(`Resetting connection for ${req.method} ${pathname}`);
     recordLog({
       method: req.method,
@@ -248,9 +253,13 @@ mockRouter.use(async (req: Request, res: Response, next: NextFunction) => {
     return;
   }
 
-  // Every response slot is a full config. Disabled slots are skipped; with only
-  // one usable slot requests always get that one.
-  const { index: responseIndex, cycling } = resolveResponseIndex(match.rule);
+  // Every response slot is a full config. Disabled slots are skipped, a slot
+  // whose conditions match wins outright, and the remaining ones cycle.
+  const {
+    index: responseIndex,
+    cycling,
+    conditionMatched,
+  } = resolveResponseIndex(match.rule, reqSnapshot);
 
   try {
     const result = await buildResponse({ rule: match.rule, responseIndex, req: reqSnapshot });
@@ -262,7 +271,8 @@ mockRouter.use(async (req: Request, res: Response, next: NextFunction) => {
       method: req.method,
       path: pathname,
       ruleId: match.rule.id,
-      ruleName: cycling ? `${match.rule.name} #${responseIndex + 1}` : match.rule.name,
+      ruleName:
+        cycling || conditionMatched ? `${match.rule.name} #${responseIndex + 1}` : match.rule.name,
       status: result.status,
       durationMs: result.durationMs,
       matched: true,

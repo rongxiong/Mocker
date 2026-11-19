@@ -10,12 +10,15 @@ import {
   Send,
   Trash2,
 } from 'lucide-react';
-import type { HeaderEntry, MockRule, PreviewResult } from '@shared/types';
+import type { HeaderEntry, MockRequestSnapshot, MockRule, PreviewResult } from '@shared/types';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
+import { Switch } from './ui/switch';
 import { LazyCodeEditor as CodeEditor } from './LazyCodeEditor';
 import { api } from '@/lib/api';
 import { responseAt } from '@shared/defaults';
+import { hasEffectiveConditions } from '@shared/services/conditions';
+import { selectResponseIndexes } from '@shared/services/sequence';
 import { buildHttpie, cn, copyText, prettyJson } from '@/lib/utils';
 import { toast } from './ui/toast';
 
@@ -99,6 +102,24 @@ function parseBody(raw: string): unknown {
   }
 }
 
+/** Real requests parse cookies out of the `cookie` header; mirror that here. */
+function parseCookies(raw: string): Record<string, string> {
+  const cookies: Record<string, string> = {};
+  for (const part of raw.split(';')) {
+    const index = part.indexOf('=');
+    if (index < 0) continue;
+    const key = part.slice(0, index).trim();
+    const value = part.slice(index + 1).trim();
+    if (!key) continue;
+    try {
+      cookies[key] = decodeURIComponent(value);
+    } catch {
+      cookies[key] = value;
+    }
+  }
+  return cookies;
+}
+
 const BODYLESS_METHODS = ['GET', 'HEAD'];
 
 export function ResponsePreview({ rule, baseUrl, refreshToken = 0 }: ResponsePreviewProps) {
@@ -117,15 +138,25 @@ export function ResponsePreview({ rule, baseUrl, refreshToken = 0 }: ResponsePre
   const [headerRows, setHeaderRows] = useState<HeaderEntry[]>([]);
   const [body, setBody] = useState('');
   const [responseIndex, setResponseIndex] = useState(0);
+  const [autoSlot, setAutoSlot] = useState(false);
   const requestSeq = useRef(0);
 
   // Every slot is a full response; the picker can inspect any of them,
   // including slots that are currently disabled for real requests.
   const slots = rule.responses ?? [];
   const showSlots = slots.length > 1;
+  const hasConditionSlots = slots.some(
+    (slot) => slot.enabled !== false && hasEffectiveConditions(slot),
+  );
   useEffect(() => {
     setResponseIndex(0);
   }, [rule.id, slots.length]);
+
+  // Removing / disabling the last conditional slot hides the toggle; make
+  // sure the stale switch cannot silently come back when a condition returns.
+  useEffect(() => {
+    if (!hasConditionSlots) setAutoSlot(false);
+  }, [hasConditionSlots]);
 
   useEffect(() => {
     setParamValues(
@@ -141,17 +172,36 @@ export function ResponsePreview({ rule, baseUrl, refreshToken = 0 }: ResponsePre
   const cleanRows = (rows: HeaderEntry[]) =>
     rows.filter((row) => row.key.trim() !== '') as HeaderEntry[];
 
-  const requestPayload = useMemo(() => {
+  const previewRequest = useMemo<MockRequestSnapshot>(() => {
     const query = Object.fromEntries(cleanRows(queryRows).map((row) => [row.key, row.value]));
-    const headers = Object.fromEntries(cleanRows(headerRows).map((row) => [row.key, row.value]));
+    // Express lower-cases incoming header names, mirror that for conditions.
+    const headers = Object.fromEntries(
+      cleanRows(headerRows).map((row) => [row.key.toLowerCase(), row.value]),
+    );
     return {
+      method: rule.method,
+      path: rule.path,
       params: paramValues,
       query,
       headers,
+      cookies: parseCookies(headers.cookie ?? ''),
       body: parseBody(body),
-      responseIndex,
     };
-  }, [paramValues, queryRows, headerRows, body, responseIndex]);
+  }, [rule.method, rule.path, paramValues, queryRows, headerRows, body]);
+
+  // The same pure selection the mock route uses, but without advancing its
+  // in-memory sequence counter: previews never disturb real requests.
+  const autoSelection = useMemo(
+    () => selectResponseIndexes(rule, previewRequest),
+    [rule, previewRequest],
+  );
+  const autoIndex = autoSelection.indexes[0] ?? 0;
+  const effectiveIndex = autoSlot && hasConditionSlots ? autoIndex : responseIndex;
+
+  const requestPayload = useMemo(
+    () => ({ ...previewRequest, responseIndex: effectiveIndex }),
+    [previewRequest, effectiveIndex],
+  );
 
   const payloadKey = JSON.stringify(requestPayload);
 
@@ -180,7 +230,12 @@ export function ResponsePreview({ rule, baseUrl, refreshToken = 0 }: ResponsePre
     cleanRows(queryRows).map((row) => [row.key, row.value]),
   ).toString();
 
-  const activeResponse = responseAt(rule, responseIndex);
+  const activeResponse = responseAt(rule, effectiveIndex);
+  const autoHint = autoSelection.conditionMatched
+    ? `真实请求会命中 #${autoIndex + 1}`
+    : autoSelection.indexes.length > 1
+      ? `未命中条件档，真实请求在 ${autoSelection.indexes.length} 个无条件档间轮询`
+      : `未命中条件档，真实请求兜底 #${autoIndex + 1}`;
   const language =
     preview?.contentType.includes('json') ||
     activeResponse.responseType === 'json' ||
@@ -215,30 +270,53 @@ export function ResponsePreview({ rule, baseUrl, refreshToken = 0 }: ResponsePre
 
       <div className="flex-1 overflow-y-auto p-4">
         {showSlots ? (
-          <div className="mb-3 flex items-center gap-2">
-            <span className="text-[13px] text-muted-300">响应</span>
-            <div className="flex flex-wrap gap-1">
-              {slots.map((slot, index) => (
-                <button
-                  key={slot.id}
-                  type="button"
-                  title={`${slot.label || `第 ${index + 1} 档响应`}${slot.enabled === false ? '（已停用，仅供查看）' : ''}`}
-                  onClick={() => setResponseIndex(index)}
-                  className={cn(
-                    'cursor-pointer rounded-md border px-2 py-1 font-mono text-[12px] transition-colors duration-150',
-                    responseIndex === index
-                      ? 'border-brand-500/40 bg-brand-500/10 text-fg'
-                      : 'border-line text-muted-300 hover:text-muted-100',
-                    slot.enabled === false && 'opacity-55 line-through',
-                  )}
-                >
-                  #{index + 1}
-                  {index === 0 ? ' 默认' : ''}
-                  {slot.label ? ` ${slot.label}` : ''}
-                  {slot.enabled === false ? ' 停用' : ''}
-                </button>
-              ))}
+          <div className="mb-3">
+            <div className="flex items-center gap-2">
+              <span className="text-[13px] text-muted-300">响应</span>
+              <div className="flex flex-wrap gap-1">
+                {slots.map((slot, index) => (
+                  <button
+                    key={slot.id}
+                    type="button"
+                    title={`${slot.label || `第 ${index + 1} 档响应`}${hasEffectiveConditions(slot) ? '（有条件）' : ''}${slot.enabled === false ? '（已停用，仅供查看）' : ''}`}
+                    onClick={() => {
+                      setAutoSlot(false);
+                      setResponseIndex(index);
+                    }}
+                    className={cn(
+                      'cursor-pointer rounded-md border px-2 py-1 font-mono text-[12px] transition-colors duration-150',
+                      effectiveIndex === index
+                        ? 'border-brand-500/40 bg-brand-500/10 text-fg'
+                        : 'border-line text-muted-300 hover:text-muted-100',
+                      slot.enabled === false && 'opacity-55 line-through',
+                      autoSlot && effectiveIndex === index && 'border-dashed',
+                    )}
+                  >
+                    #{index + 1}
+                    {index === 0 ? ' 默认' : ''}
+                    {slot.label ? ` ${slot.label}` : ''}
+                    {slot.enabled === false ? ' 停用' : ''}
+                  </button>
+                ))}
+              </div>
             </div>
+            {hasConditionSlots ? (
+              <div className="mt-2 flex flex-wrap items-center gap-2 text-[12px] text-muted-300">
+                <Switch
+                  title="按请求条件自动选档"
+                  aria-label="按请求条件自动选档"
+                  checked={autoSlot}
+                  onCheckedChange={setAutoSlot}
+                />
+                <span>按请求条件自动选档</span>
+                <span className="font-mono">
+                  {autoHint}
+                  {autoSlot && !autoSelection.conditionMatched && autoSelection.indexes.length > 1
+                    ? `（预览显示 #${autoIndex + 1}）`
+                    : ''}
+                </span>
+              </div>
+            ) : null}
           </div>
         ) : null}
 

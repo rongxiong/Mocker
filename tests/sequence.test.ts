@@ -3,6 +3,7 @@ import {
   nextResponseIndex,
   resetSequence,
   resolveResponseIndex,
+  selectResponseIndexes,
 } from '../server/src/services/sequence';
 import {
   coerceRulePatch,
@@ -15,7 +16,7 @@ import {
   primaryResponse,
   responseAt,
 } from '../server/src/defaults';
-import type { RuleInput } from '../server/src/types';
+import type { MockRequestSnapshot, RuleCondition, RuleInput } from '../server/src/types';
 
 describe('nextResponseIndex', () => {
   beforeEach(() => resetSequence());
@@ -206,9 +207,9 @@ describe('per-slot switches', () => {
   it('cycles only through enabled slots', () => {
     expect(enabledResponseIndexes(rule)).toEqual([1, 3]);
     resetSequence();
-    expect(resolveResponseIndex(rule)).toEqual({ index: 1, cycling: true });
-    expect(resolveResponseIndex(rule)).toEqual({ index: 3, cycling: true });
-    expect(resolveResponseIndex(rule)).toEqual({ index: 1, cycling: true });
+    expect(resolveResponseIndex(rule)).toMatchObject({ index: 1, cycling: true });
+    expect(resolveResponseIndex(rule)).toMatchObject({ index: 3, cycling: true });
+    expect(resolveResponseIndex(rule)).toMatchObject({ index: 1, cycling: true });
   });
 
   it('does not cycle when only one slot is enabled', () => {
@@ -216,8 +217,8 @@ describe('per-slot switches', () => {
       responses: rule.responses.map((item, index) => ({ ...item, enabled: index === 1 })),
     });
     resetSequence();
-    expect(resolveResponseIndex(one)).toEqual({ index: 1, cycling: false });
-    expect(resolveResponseIndex(one)).toEqual({ index: 1, cycling: false });
+    expect(resolveResponseIndex(one)).toMatchObject({ index: 1, cycling: false });
+    expect(resolveResponseIndex(one)).toMatchObject({ index: 1, cycling: false });
     expect(firstEnabledResponse(one).body).toBe('{"slot":2}');
   });
 
@@ -226,7 +227,7 @@ describe('per-slot switches', () => {
       responses: rule.responses.map((item) => ({ ...item, enabled: false })),
     });
     expect(enabledResponseIndexes(allOff)).toEqual([0]);
-    expect(resolveResponseIndex(allOff)).toEqual({ index: 0, cycling: false });
+    expect(resolveResponseIndex(allOff)).toMatchObject({ index: 0, cycling: false });
     expect(firstEnabledResponse(allOff).body).toBe('{"slot":1}');
   });
 
@@ -312,5 +313,163 @@ describe('normalization regressions', () => {
     const rule = normalizeRule({ createdAt: 111, updatedAt: 222 });
     expect(rule.createdAt).toBe(111);
     expect(rule.updatedAt).toBe(222);
+  });
+});
+
+const vipCondition: RuleCondition = {
+  id: 'c1',
+  source: 'query',
+  key: 'type',
+  op: 'eq',
+  value: 'vip',
+};
+
+const requestWith = (query: Record<string, string | string[]> = {}): MockRequestSnapshot => ({
+  method: 'GET',
+  path: '/api/slots',
+  params: {},
+  query,
+  headers: {},
+  cookies: {},
+  body: undefined,
+});
+
+describe('per-slot conditions', () => {
+  beforeEach(() => resetSequence());
+
+  const rule = createDefaultRule({
+    responses: [
+      createResponseEntry({ body: '{"slot":1}' }),
+      createResponseEntry({ body: '{"slot":2}' }),
+      createResponseEntry({ body: '{"slot":"vip"}', conditions: [vipCondition] }),
+    ],
+  });
+
+  it('lets a matching conditional slot win without advancing the counter', () => {
+    const vip = requestWith({ type: 'vip' });
+    expect(selectResponseIndexes(rule, vip)).toEqual({ indexes: [2], conditionMatched: true });
+    expect(resolveResponseIndex(rule, vip)).toEqual({
+      index: 2,
+      cycling: false,
+      conditionMatched: true,
+    });
+    expect(resolveResponseIndex(rule, requestWith())).toEqual({
+      index: 0,
+      cycling: true,
+      conditionMatched: false,
+    });
+    expect(resolveResponseIndex(rule, vip)).toEqual({
+      index: 2,
+      cycling: false,
+      conditionMatched: true,
+    });
+    expect(resolveResponseIndex(rule, requestWith())).toEqual({
+      index: 1,
+      cycling: true,
+      conditionMatched: false,
+    });
+  });
+
+  it('cycles only through unconditional slots when no condition matches', () => {
+    expect(selectResponseIndexes(rule, requestWith())).toEqual({
+      indexes: [0, 1],
+      conditionMatched: false,
+    });
+  });
+
+  it('ignores disabled conditional slots', () => {
+    const disabled = createDefaultRule({
+      responses: rule.responses.map((item, index) =>
+        index === 2 ? { ...item, enabled: false } : item,
+      ),
+    });
+    expect(selectResponseIndexes(disabled, requestWith({ type: 'vip' }))).toEqual({
+      indexes: [0, 1],
+      conditionMatched: false,
+    });
+  });
+
+  it('treats a parked condition switch as an unconditional slot', () => {
+    const parked = createDefaultRule({
+      responses: [
+        createResponseEntry({ body: '{"slot":1}' }),
+        createResponseEntry({
+          body: '{"slot":"vip"}',
+          conditions: [vipCondition],
+          conditionsEnabled: false,
+        }),
+      ],
+    });
+    expect(selectResponseIndexes(parked, requestWith({ type: 'vip' }))).toEqual({
+      indexes: [0, 1],
+      conditionMatched: false,
+    });
+  });
+
+  it('falls back to the first enabled slot when all conditional slots miss', () => {
+    const onlyConditional = createDefaultRule({
+      responses: [
+        createResponseEntry({ body: '{"slot":1}', conditions: [vipCondition] }),
+        createResponseEntry({
+          body: '{"slot":2}',
+          conditions: [{ ...vipCondition, value: 'guest' }],
+        }),
+      ],
+    });
+    expect(selectResponseIndexes(onlyConditional, requestWith())).toEqual({
+      indexes: [0],
+      conditionMatched: false,
+    });
+  });
+
+  it('uses the first matching slot when several conditions match', () => {
+    const twoMatches = createDefaultRule({
+      responses: [
+        createResponseEntry({ body: '{"slot":1}' }),
+        createResponseEntry({ body: '{"slot":2}', conditions: [vipCondition] }),
+        createResponseEntry({ body: '{"slot":3}', conditions: [vipCondition] }),
+      ],
+    });
+    expect(selectResponseIndexes(twoMatches, requestWith({ type: 'vip' }))).toEqual({
+      indexes: [1],
+      conditionMatched: true,
+    });
+  });
+});
+
+describe('slot condition normalization', () => {
+  it('defaults missing slot conditions and keeps provided ones', () => {
+    const rule = normalizeRule({
+      responses: [
+        { body: '{"slot":1}' },
+        { body: '{"slot":2}', conditions: [vipCondition], conditionsEnabled: false },
+      ],
+    } as unknown as RuleInput);
+    expect(rule.responses[0]).toMatchObject({ conditions: [], conditionsEnabled: true });
+    expect(rule.responses[1]).toMatchObject({
+      conditions: [vipCondition],
+      conditionsEnabled: false,
+    });
+  });
+
+  it('drops malformed condition collections', () => {
+    expect(normalizeResponse({ conditions: 'nope' }).conditions).toEqual([]);
+  });
+
+  it('keeps the default slot conditions on a legacy flat patch', () => {
+    const current = createDefaultRule({
+      responses: [createResponseEntry({ conditions: [vipCondition] })],
+    });
+    const patch = coerceRulePatch({ delayMs: 40 }, current);
+    expect(patch.responses?.[0]?.conditions).toEqual([vipCondition]);
+  });
+
+  it('does not copy conditions into expanded v2 variants', () => {
+    const current = createDefaultRule({
+      responses: [createResponseEntry({ conditions: [vipCondition] })],
+    });
+    const patch = coerceRulePatch({ variants: [{ id: 'v1' }] }, current);
+    expect(patch.responses?.[0]?.conditions).toEqual([vipCondition]);
+    expect(patch.responses?.[1]).toMatchObject({ conditions: [], conditionsEnabled: true });
   });
 });

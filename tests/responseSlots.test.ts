@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createResponseEntry } from '../server/src/defaults';
-import { nextActiveIndex, removeSlot } from '../web/src/lib/responseSlots';
+import { duplicateSlot, nextActiveIndex, removeSlot } from '../web/src/lib/responseSlots';
 
 const slots = () => [
   createResponseEntry({ id: 'a', body: '{"slot":1}' }),
@@ -32,6 +32,31 @@ describe('removeSlot', () => {
     const list = slots();
     expect(removeSlot(list, -1)).toBe(list);
     expect(removeSlot(list, 3)).toBe(list);
+  });
+});
+
+describe('duplicateSlot', () => {
+  it('clones the response but clears metadata and conditions', () => {
+    const original = createResponseEntry({
+      id: 'a',
+      label: '首次成功',
+      enabled: false,
+      headers: [{ key: 'X-Token', value: '1' }],
+      conditionsEnabled: false,
+      conditions: [{ id: 'c1', source: 'query', key: 'type', op: 'eq', value: 'vip' }],
+    });
+    const copy = duplicateSlot(original);
+
+    expect(copy.id).not.toBe(original.id);
+    expect(copy).toMatchObject({
+      label: '',
+      enabled: true,
+      conditionsEnabled: true,
+      conditions: [],
+      headers: [{ key: 'X-Token', value: '1' }],
+    });
+    expect(copy.headers[0]).not.toBe(original.headers[0]);
+    expect(copy.schema).not.toBe(original.schema);
   });
 });
 

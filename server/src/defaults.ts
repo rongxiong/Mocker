@@ -7,6 +7,7 @@ import type {
   ResponseConfig,
   ResponseEntry,
   ResponseType,
+  RuleCondition,
   RuleInput,
   SchemaField,
   SchemaFieldType,
@@ -166,6 +167,12 @@ function text(value: unknown): string {
   return typeof value === 'string' ? value : '';
 }
 
+/** Accepts the loose 0 / "false" values found in hand-written backups. */
+function booleanValue(value: unknown, fallback: boolean): boolean {
+  if (value === undefined) return fallback;
+  return value !== false && value !== 0 && value !== null && value !== 'false';
+}
+
 function toNumber(value: unknown, fallback: number): number {
   if (value === undefined || value === null || value === '') return fallback;
   const parsed = Number(value);
@@ -209,12 +216,17 @@ export function normalizeResponse(
   fallback: ResponseConfig = createDefaultResponse(),
 ): ResponseEntry {
   const source = (input ?? {}) as Partial<ResponseEntry>;
-  const enabledRaw: unknown = source.enabled;
-  const fallbackEnabled = (fallback as Partial<ResponseEntry>).enabled;
-  const enabled =
-    enabledRaw === undefined
-      ? fallbackEnabled !== false
-      : enabledRaw !== false && enabledRaw !== 0 && enabledRaw !== null && enabledRaw !== 'false';
+  const fallbackSlot = fallback as Partial<ResponseEntry>;
+  const enabled = booleanValue(source.enabled, fallbackSlot.enabled !== false);
+  const conditionsEnabled = booleanValue(
+    source.conditionsEnabled,
+    fallbackSlot.conditionsEnabled !== false,
+  );
+  // Slots with no conditions stay unconditional; legacy flat patches keep the
+  // conditions of the slot they are replacing instead of silently dropping them.
+  const conditions = Array.isArray(source.conditions)
+    ? (source.conditions as RuleCondition[])
+    : (fallbackSlot.conditions ?? []);
   return {
     statusCode: toNumber(source.statusCode, fallback.statusCode),
     headers: Array.isArray(source.headers) ? source.headers : fallback.headers,
@@ -235,6 +247,8 @@ export function normalizeResponse(
     id: text(source.id) || uid(),
     label: text(source.label),
     enabled,
+    conditionsEnabled,
+    conditions,
   };
 }
 
@@ -269,6 +283,8 @@ function expandLegacyVariant(
     id: text(source.id) || uid(),
     label: text(source.label) || `响应 ${index + 2}`,
     enabled,
+    conditionsEnabled: true,
+    conditions: [],
     statusCode: toNumber(source.statusCode, base.statusCode),
     delayMs: toNumber(delayRaw, base.delayMs),
     delayJitterMs: delayRaw === '' ? base.delayJitterMs : 0,

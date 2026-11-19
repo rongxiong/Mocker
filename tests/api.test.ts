@@ -486,6 +486,89 @@ describe('mock router', () => {
     await expect(plain.json()).resolves.toEqual({ variant: 'plain' });
   });
 
+  it('routes requests to conditional response slots without advancing the sequence', async () => {
+    await createRule({
+      path: '/api/slot-conditions',
+      responses: [
+        createResponseEntry({ body: '{"slot":1}' }),
+        createResponseEntry({ body: '{"slot":2}' }),
+        createResponseEntry({
+          body: '{"slot":"vip"}',
+          conditions: [{ id: 's1', source: 'query', key: 'type', op: 'eq', value: 'vip' }],
+        }),
+      ],
+    });
+
+    const vip = await fetch(`${base}/mock/api/slot-conditions?type=vip`);
+    await expect(vip.json()).resolves.toEqual({ slot: 'vip' });
+
+    const first = await fetch(`${base}/mock/api/slot-conditions`);
+    await expect(first.json()).resolves.toEqual({ slot: 1 });
+
+    // A conditional hit is direct: the next plain request must get slot 2.
+    const vipAgain = await fetch(`${base}/mock/api/slot-conditions?type=vip`);
+    await expect(vipAgain.json()).resolves.toEqual({ slot: 'vip' });
+
+    const second = await fetch(`${base}/mock/api/slot-conditions`);
+    await expect(second.json()).resolves.toEqual({ slot: 2 });
+
+    const { logs } = (await (await fetch(`${base}/__api/logs`)).json()) as {
+      logs: RequestLogEntry[];
+    };
+    expect(logs.some((entry) => entry.ruleName.includes('#3'))).toBe(true);
+  });
+
+  it('treats a slot with its condition switch off as a normal sequence slot', async () => {
+    await createRule({
+      path: '/api/slot-conditions-off',
+      responses: [
+        createResponseEntry({ body: '{"slot":1}' }),
+        createResponseEntry({
+          body: '{"slot":2}',
+          conditionsEnabled: false,
+          conditions: [{ id: 's1', source: 'query', key: 'type', op: 'eq', value: 'vip' }],
+        }),
+      ],
+    });
+
+    const first = await fetch(`${base}/mock/api/slot-conditions-off?type=vip`);
+    await expect(first.json()).resolves.toEqual({ slot: 1 });
+    const second = await fetch(`${base}/mock/api/slot-conditions-off?type=vip`);
+    await expect(second.json()).resolves.toEqual({ slot: 2 });
+  });
+
+  it('round-trips per-slot conditions through a full rule PUT', async () => {
+    const condition = {
+      id: 's1',
+      source: 'header' as const,
+      key: 'x-env',
+      op: 'eq' as const,
+      value: 'vip',
+    };
+    const rule = await createRule({
+      path: '/api/slot-condition-roundtrip',
+      responses: [
+        createResponseEntry({ body: '{"slot":1}' }),
+        createResponseEntry({
+          body: '{"slot":2}',
+          conditions: [condition],
+          conditionsEnabled: false,
+        }),
+      ],
+    });
+
+    const response = await fetch(`${base}/__api/rules/${rule.id}`, {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(rule),
+    });
+    const { rule: saved } = (await response.json()) as { rule: MockRule };
+    expect(saved.responses[1]).toMatchObject({
+      conditions: [condition],
+      conditionsEnabled: false,
+    });
+  });
+
   it('cycles through full response slots', async () => {
     await createRule({
       path: '/api/flaky',
