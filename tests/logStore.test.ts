@@ -1,5 +1,5 @@
 import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { initDb } from '../server/src/db';
+import { initDb, transaction } from '../server/src/db';
 import { migrate } from '../server/src/db/migrate';
 import {
   MAX_ENTRIES,
@@ -53,9 +53,13 @@ describe('logStore', () => {
 
   it('keeps the same number of entries in memory and in SQLite', () => {
     expect(MAX_ENTRIES).toBe(LOG_RETENTION);
-    for (let index = 0; index < MAX_ENTRIES + 30; index += 1) {
-      recordLog(entry({ path: `/req-${index}` }));
-    }
+    // One commit instead of 230: on slow CI disks an fsync per row is enough to
+    // blow the test timeout without exercising anything extra.
+    transaction(() => {
+      for (let index = 0; index < MAX_ENTRIES + 30; index += 1) {
+        recordLog(entry({ path: `/req-${index}` }));
+      }
+    });
     const logs = recentLogs();
     expect(logs).toHaveLength(MAX_ENTRIES);
     expect(logs[0]?.path).toBe(`/req-${MAX_ENTRIES + 29}`);

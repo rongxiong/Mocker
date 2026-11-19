@@ -104,6 +104,10 @@ export async function initDb(): Promise<DatabaseLike> {
     );
   }
   instance.exec('PRAGMA journal_mode = WAL;');
+  // WAL + NORMAL avoids an fsync for every single-row commit (each mock request
+  // writes a log). Durability across process crashes is unchanged; only a power
+  // failure could lose the newest commits, which is acceptable for a mock tool.
+  instance.exec('PRAGMA synchronous = NORMAL;');
   return instance;
 }
 

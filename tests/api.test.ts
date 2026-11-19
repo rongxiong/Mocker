@@ -247,6 +247,8 @@ describe('admin API', () => {
     const second = await fetch(`${base}/mock/api/save-switch`);
     expect(first.status).toBe(200);
     expect(second.status).toBe(200);
+    // Consume both bodies so the keep-alive sockets are released promptly.
+    await expect(first.json()).resolves.toEqual({ slot: 1 });
     await expect(second.json()).resolves.toEqual({ slot: 1 });
   });
 

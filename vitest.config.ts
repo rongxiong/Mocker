@@ -16,6 +16,11 @@ export default defineConfig({
     include: ['tests/**/*.test.ts'],
     // Gives every test file an isolated DATA_DIR so suites never share a database.
     setupFiles: ['tests/setup.ts'],
+    // CI runs 15 files with V8 coverage on small runners: SQLite writes and
+    // loopback HTTP round trips can take several seconds there. The suite also
+    // has a deliberate 2s script-timeout test, so 5s is too tight.
+    testTimeout: 20_000,
+    hookTimeout: 20_000,
     coverage: {
       provider: 'v8',
       reporter: ['text', 'lcov'],
