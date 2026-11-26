@@ -1,6 +1,6 @@
 ---
 name: repowiki
-description: Generate a structured, navigable wiki for a code repository — architecture overview, module-by-module pages, API/CLI/config reference, Mermaid diagrams, and verifiable file:line source citations — and keep it current as the code changes. Use this whenever the user asks for a repo wiki, repowiki, codebase documentation, an architecture overview or onboarding guide for a project, a DeepWiki-style site, "document this repo/codebase", "explain how this repo works end to end", or to refresh or update existing repo docs after code changes. Also use it when the user hands over a GitHub URL, a zip, or a local project and wants the whole project understood and written up (not a single bug fixed), even if they never say the word "wiki".
+description: Generate a structured, navigable wiki for a code repository — architecture overview, module-by-module pages, API/CLI/config reference, Mermaid diagrams, and verifiable file:line source citations — and keep it current as the code changes. Use this whenever the user asks for a repo wiki, repowiki, codebase documentation, an architecture overview or onboarding guide for a project, a DeepWiki-style site, "document this repo/codebase", "explain how this repo works end to end", or to refresh or update existing repo docs after code changes. Also use it when the user hands over a GitHub URL, a zip, a local project, or a workspace of several related repositories and wants the whole thing understood and written up (not a single bug fixed), even if they never say the word "wiki".
 compatibility: Works in any agent that supports Agent Skills (GitHub Copilot in VS Code, Copilot CLI, Claude Code, claude.ai). The bundled scripts need Python 3.9+ and use git when available; without them, write the wiki by hand and skip the automated checks.
 ---
 
@@ -26,9 +26,10 @@ The scripts live in [scripts/](./scripts/) next to this file. Wherever a command
 ### 1. Establish context
 
 - **Repo location.** The open workspace, a local path, an uploaded archive (unpack it into a writable working dir), or a GitHub URL (`git clone --depth 50 <url>` if the network allows, otherwise ask for an upload).
+- **Which folder is the root?** Choose one folder and use it for everything: the `<repo>` argument of every script, the base of every citation and `sources` path, and the home of the wiki (`<root>/repowiki/`). If the user points at a subfolder — a package in a monorepo, or one project inside a larger workspace — *that subfolder is the root*. It need not be a git root: the scripts run git relative to it, so parent `.gitignore` rules apply and changes elsewhere in the repo never make its pages stale. If the workspace holds several projects and the request doesn't say which, ask once (offer the candidates you found from manifests) before scanning. On the index page, say which folder the root is when it isn't the git root ("Paths are relative to `packages/api/`"). You may cite a sibling package with a `../` path when an explanation needs it (the linter checks it), but don't document it. If the folder holds *several related repositories* (a workspace folder, or a parent of sibling repos) and the user wants one wiki for them, that folder is the root and you are in **workspace mode** — see [Workspace of related repos](#workspace-of-related-repos). Agent files at the root (`.github/skills/`, `.github/copilot-instructions.md`, `.claude/`) are ignored by the scripts automatically.
 - **Mode.** If the target wiki dir already has pages with `commit:` frontmatter, this is an **update**: follow [references/update-mode.md](./references/update-mode.md) instead of rewriting from scratch.
 - **Scope and audience.** Whole repo by default. If the user names a package, sub-path or audience ("for new contributors", "for API consumers"), honor it and say so on the index page.
-- **Output dir.** `repowiki/` at the repo root by default. Use an existing convention (`docs/`, `wiki/`) or the user's choice if given. In a chat sandbox that has a designated outputs folder (claude.ai: `/mnt/user-data/outputs/`), write there instead.
+- **Output dir.** `repowiki/` inside the root folder by default. Use an existing convention (`docs/`, `wiki/`) or the user's choice if given. In a chat sandbox that has a designated outputs folder (claude.ai: `/mnt/user-data/outputs/`), write there instead.
 - **Language.** Write in the user's language, or the README's if the user didn't specify.
 
 ### 2. Scan
@@ -66,7 +67,7 @@ Module pages come first because the overview and architecture pages synthesize t
 
 ### 6. Synthesize
 
-Write `architecture.md` (component diagram, responsibilities, key flows), `overview.md` (what/why/tech stack/repo layout), `getting-started.md` (commands taken from README, Makefile, CI, or manifests — never invented; say which you actually ran, if any), and finally `index.md` linking every page with a one-line description. Stamp every page with the commit from `git rev-parse --short HEAD` (omit `commit` only when the repo isn't git).
+Write `architecture.md` (component diagram, responsibilities, key flows), `overview.md` (what/why/tech stack/repo layout), `getting-started.md` (commands taken from README, Makefile, CI, or manifests — never invented; say which you actually ran, if any), and finally `index.md` linking every page with a one-line description. Stamp every page with the commit from `git rev-parse --short HEAD` (omit `commit` only when the repo isn't git). In workspace mode stamp with `commits:` instead — see below.
 
 ### 7. Validate
 
@@ -114,7 +115,7 @@ title: Authentication
 sources:
   - src/auth/
   - src/middleware/session.ts
-commit: a1b2c3d
+commit: a1b2c3d          # workspace mode: use `commits:` instead (see below)
 ---
 # Authentication
 
@@ -122,9 +123,27 @@ Two or three sentences: what this component is for and where it sits in the syst
 ```
 
 - `sources`: files, directories or globs this page's claims depend on. Update mode uses them to decide staleness, and lint uses them for coverage. For module pages list the subsystem's directory. For synthesis pages (`overview`, `architecture`) list only the files that define structure — manifests, entry points, package `__init__`, key config — never the whole source tree: a page claiming everything goes stale on every change, and it also hides new, undocumented code from the "unclaimed files" report.
-- **Citations:** a backticked, repo-root-relative path with lines: `` `src/auth/session.ts:42-87` ``. Cite after the claim or in a closing "Sources" line per section. Only cite lines you read at this commit; lint verifies file existence and line bounds.
+- **Citations:** a backticked path relative to the root chosen in step 1, with lines: `` `src/auth/session.ts:42-87` ``. Cite after the claim or in a closing "Sources" line per section. Only cite lines you read at this commit; lint verifies file existence and line bounds.
 - **Links between pages:** relative markdown links (`[Auth](../modules/auth.md)`), with every page reachable from `index.md`.
 - **Length:** ~300–1,200 words per page; split before going longer. Tables for reference material, numbered steps for flows.
+
+## Workspace of related repos
+
+Use this when the scan prints **Workspace mode: yes**: the root holds several git repositories and the user wants one wiki for all of them, written at the root (for example a VS Code workspace whose subfolders are the repos, with the Copilot files at its top). The root itself may or may not be a git repository; the scripts handle both, apply each repo's own `.gitignore`, and report every repo's branch, HEAD and dirty state.
+
+1. **Work out the roles before planning.** Read the scan's repository table and *Cross-repo hints* (path dependencies, package names, Compose build contexts, submodules), then confirm by reading the files — the hints are heuristics. Decide which repo is the main app or entry point and which are libraries, services, SDKs, infrastructure or tooling. Look for the links the hints can't see: API base URLs and env vars, shared schemas (OpenAPI, protobuf, GraphQL), message topics, CI that checks out several repos, READMEs that name sibling repos. A relationship claim needs evidence; cite **both sides** (caller and callee), and if you only see one side, say so.
+2. **Plan one wiki for the system, with a section per repo.** Root pages: `index`, `overview` (a table of repos and their roles), `architecture` (a diagram with repos as nodes and labeled edges, plus a sequence diagram for each flow that crosses repos), `getting-started` (how to bring the whole system up: order, env, ports, commands from each repo's own README, Makefile or Compose file), and `reference/integration.md` (every contract between repos). Then `repos/<name>/index.md` and `repos/<name>/modules/*.md` for each repo. See [references/wiki-structure.md](./references/wiki-structure.md#workspace-of-related-repos).
+3. **Budget by importance, not evenly.** The main app gets the most depth; each supporting repo gets pages sized by its own size class. With more than ~8 repos, document the main repo and its direct dependencies fully, give the rest one index page each, and say so on the index.
+4. **Paths are workspace-relative.** `core/src/index.ts:12`, `sources: - core/src/`. A path always starts with the repo folder.
+5. **Stamp with `commits:`**, one `repo@sha` for every repository the page's `sources` touch — the scan prints them ready to paste:
+   ```yaml
+   commits:
+     - app@f364c52
+     - core@2a4cfde
+   ```
+   Cross-repo pages (architecture, integration) list each repo they cite. Update mode diffs each repo against its own stamp, so a change in `core` only makes the pages that depend on `core` stale.
+6. **Write per-repo pages first** (these can be delegated one repo each), then integration, architecture, overview and index. Don't modify any repo; the wiki lives only in `<root>/repowiki/`.
+7. **Dirty repos.** The scan flags repos with uncommitted changes. The wiki documents the working tree while the stamp records HEAD; mention this in your closing message.
 
 ## Writing guidance
 
@@ -142,6 +161,7 @@ Use Mermaid; recipes and pitfalls are in [references/diagrams.md](./references/d
 ## Edge cases
 
 - **Tiny or non-code repo** (docs, data, config only): produce a short wiki (overview + structure + how to use); don't force module pages.
+- **Monorepo (one repo, many packages) vs. workspace (many repos):** a monorepo is a single repo with one `commit`; a workspace uses `commits:`.
 - **Monorepo:** top-level `overview.md` and `architecture.md` describe how packages relate; each package gets its own section with an overview and module pages, listed in the index.
 - **Private repo / no access:** say what you can't reach; document only what you can read.
 - **Huge files or minified code:** read the head and the exported surface; cite what you read.

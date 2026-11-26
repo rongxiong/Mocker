@@ -176,7 +176,7 @@ def main() -> int:
         text = (wiki / rel).read_text(encoding="utf-8", errors="replace")
         meta, body, _ = wl.parse_frontmatter(text)
         parts = Path(rel).parts
-        group = parts[0].replace("-", " ").replace("_", " ").title() if len(parts) > 1 else ""
+        group = " / ".join(x.replace("-", " ").replace("_", " ").title() for x in parts[:-1])
         title = meta.get("title") or Path(rel).stem.replace("-", " ").title()
         pages.append({"id": re.sub(r"[^A-Za-z0-9]+", "-", rel[:-3]).strip("-").lower(), "path": rel, "title": title, "group": group, "body": body})
 

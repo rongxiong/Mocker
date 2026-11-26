@@ -31,7 +31,8 @@ MERMAID_TYPES = (
 LINK_RE = re.compile(r"(?<!\!)\[[^\]]*\]\(([^)\s]+)(?:\s+\"[^\"]*\")?\)")
 FENCE_RE = re.compile(r"^(\s*)(```+|~~~+)\s*([\w+-]*)")
 PLACEHOLDER_RE = re.compile(r"\b(TODO|TBD|FIXME|lorem ipsum|XXX)\b|\{\{[^}]*\}\}|\[(?:insert|describe|fill)[^\]]*\]", re.I)
-NO_SOURCES_OK = {"index", "glossary", "overview"}  # pages that may legitimately synthesise rather than cite code
+NO_SOURCES_OK = {"index.md", "glossary.md", "overview.md"}  # root pages that may legitimately synthesise rather than cite code
+NO_STAMP_OK = {"index.md", "glossary.md"}  # root pages that are reviewed by hand, not diffed
 
 
 class Report:
@@ -105,6 +106,7 @@ def main() -> int:
     rel = {p: p.relative_to(wiki).as_posix() for p in pages}
     by_rel = {r: p for p, r in rel.items()}
     repo_files = wl.list_repo_files(repo)
+    nested = wl.find_nested_repos(repo)
     repo_file_set = set(repo_files)
 
     def nlines(path: str) -> int:
@@ -138,12 +140,21 @@ def main() -> int:
 
         if not meta.get("title"):
             rep.add("error", r, 1, "frontmatter is missing `title`")
-        stem = Path(r).stem
         sources = wl.as_list(meta.get("sources"))
-        if not sources and stem not in NO_SOURCES_OK:
+        if not sources and r not in NO_SOURCES_OK:
             rep.add("warning", r, 1, "frontmatter has no `sources`; update mode can't tell when this page goes stale")
-        if not meta.get("commit") and wl.is_git_repo(repo):
-            rep.add("warning", r, 1, "frontmatter has no `commit`; update mode will treat this page as always stale")
+        commits = wl.as_list(meta.get("commits"))
+        if not meta.get("commit") and not commits and (wl.is_git_repo(repo) or nested) and r not in NO_STAMP_OK:
+            hint = "`commit`" if wl.is_git_repo(repo) and not nested else "`commits` (one `path@sha` per repository the page covers)"
+            rep.add("warning", r, 1, f"frontmatter has no {hint}; update mode can't tell when this page goes stale")
+        for ent in commits:
+            sub, sha = wl.split_commit_entry(ent)
+            if not sub or not sha:
+                rep.add("error", r, 1, f"malformed `commits` entry '{ent}'; expected path@sha, e.g. core@a1b2c3d")
+            elif not (repo / sub / ".git").exists():
+                rep.add("error", r, 1, f"`commits` entry '{ent}': '{sub}' is not a git repository inside the root")
+            elif wl.git(repo / sub, "rev-parse", "--verify", "--quiet", sha + "^{commit}") is None:
+                rep.add("warning", r, 1, f"`commits` entry '{ent}': commit not found in '{sub}' (shallow clone or rewritten history?)")
         for s in sources:
             hits = [f for f in repo_files if wl.source_matches(s, f)]
             if not hits and not (repo / s.rstrip("/")).exists():

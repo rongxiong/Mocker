@@ -29,6 +29,16 @@ Use this when the wiki directory already contains pages with `commit:` frontmatt
 
 6. **Report briefly.** List pages updated, added, removed; anything you left stale and why.
 
+## Workspaces of several repos
+
+Pages in a workspace wiki are stamped with `commits:` (one `repo@sha` per repository, see SKILL.md), and `stale_pages.py` diffs each repository against its own stamp, so output is already per-repo. Extra points:
+
+- **Re-stamp per repo.** For each repo a page covers, set that entry to `git -C <repo> rev-parse --short HEAD`. Keep entries only for repos the page's `sources` still touch.
+- **"REPOSITORIES NO PAGE CLAIMS"** means a repo appeared or lost its coverage: add a `repos/<name>/` section and an integration row, or mark it out of scope on the index.
+- **A repo was removed or renamed.** Its `commits:` entry now fails lint ("not a git repository inside the root"); drop the section, fix `integration.md`, `architecture.md` and `overview.md`, and grep the wiki for the folder name.
+- **Cross-repo pages go stale through either side.** If `core` changed an exported function, review `reference/integration.md` and any sequence diagram that calls it even if their own `sources` were untouched.
+- **A page whose stamp predates a repo's history** (shallow clone, rebased branch) shows as CANNOT TELL; fetch more history or treat the page as stale.
+
 ## Judgment calls
 
 - **Whitespace/comment-only or test-only changes:** if the diff doesn't change what the page claims, re-stamp without editing.

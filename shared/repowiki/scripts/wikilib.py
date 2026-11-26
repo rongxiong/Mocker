@@ -88,20 +88,64 @@ def head_commit(repo: Path) -> str | None:
     return out.strip() if out else None
 
 
+def find_nested_repos(root: Path, max_depth: int = 4) -> list[str]:
+    """Root-relative POSIX paths of git repositories nested below `root` (never `root` itself).
+
+    A directory counts as a repository when it contains `.git` (a directory, or a file for submodules and
+    worktrees). The search stops descending at each repository it finds and skips dependency/build folders.
+    """
+    root = Path(root)
+    found: list[str] = []
+
+    def walk(d: Path, depth: int) -> None:
+        if depth > max_depth:
+            return
+        try:
+            entries = sorted(os.scandir(d), key=lambda e: e.name)
+        except OSError:
+            return
+        for e in entries:
+            if e.name in IGNORE_DIRS or not e.is_dir(follow_symlinks=False):
+                continue
+            rel = Path(e.path).relative_to(root).as_posix()
+            if (rel + "/").startswith(AGENT_PREFIXES):
+                continue
+            if (Path(e.path) / ".git").exists():
+                found.append(rel)
+            else:
+                walk(Path(e.path), depth + 1)
+
+    walk(root, 1)
+    return found
+
+
 def list_repo_files(repo: Path) -> list[str]:
-    """Repo-relative POSIX paths of tracked + untracked-but-not-ignored files (minus agent config dirs)."""
-    return [f for f in _list_all_files(Path(repo)) if not f.startswith(AGENT_PREFIXES)]
+    """Repo-relative POSIX paths of every file under `repo` that belongs to the project.
+
+    Uses git (so .gitignore applies) wherever a git work tree exists. Repositories nested inside `repo`
+    are listed with *their own* .gitignore rules and prefixed with their folder, so a workspace of several
+    repos is seen as one tree. Agent/IDE customization folders are excluded.
+    """
+    repo = Path(repo)
+    files = {f for f in _list_all_files(repo)}
+    for sub in find_nested_repos(repo):
+        files.update(f"{sub}/{f}" for f in _list_all_files(repo / sub))
+    return sorted(f for f in files if not f.startswith(AGENT_PREFIXES))
 
 
 def _list_all_files(repo: Path) -> list[str]:
+    """Files of one directory tree: via git when inside a work tree, else a filtered walk (nested repos skipped)."""
     repo = Path(repo)
-    out = git(repo, "ls-files", "-z", "--cached", "--others", "--exclude-standard") if (repo / ".git").exists() else None
+    # Use git whenever repo is inside a work tree (the repo root OR a subfolder of one), so .gitignore rules from
+    # parent directories apply. `git ls-files` run from a subfolder lists only that folder, relative to it.
+    out = git(repo, "ls-files", "-z", "--cached", "--others", "--exclude-standard") if is_git_repo(repo) else None
     if out is not None:
-        files = [f for f in out.split("\0") if f and (repo / f).is_file()]
+        files = [f for f in out.split("\0") if f and (repo / f).is_file()]  # drops submodule/nested-repo entries
         return sorted(f for f in files if not any(p in IGNORE_DIRS for p in Path(f).parts[:-1]))
     files = []
     for root, dirs, names in os.walk(repo):
-        dirs[:] = [d for d in dirs if d not in IGNORE_DIRS]
+        # skip ignored folders and nested repositories (those are listed separately, with their own .gitignore)
+        dirs[:] = [d for d in dirs if d not in IGNORE_DIRS and not (Path(root, d) / ".git").exists()]
         for n in names:
             files.append(Path(root, n).relative_to(repo).as_posix())
     return sorted(files)
@@ -180,6 +224,12 @@ def parse_frontmatter(text: str) -> tuple[dict, str, int]:
             meta[key] = _unquote(val)
     consumed = text[: m.end()].count("\n")
     return meta, text[m.end():], consumed
+
+
+def split_commit_entry(entry: str) -> tuple[str, str]:
+    """`core@a1b2c3d` -> ("core", "a1b2c3d"). A bare sha (no `@`) means the root itself: ("", sha)."""
+    sub, sep, sha = entry.strip().rpartition("@")
+    return (sub.strip("/"), sha.strip()) if sep else ("", entry.strip())
 
 
 def as_list(v) -> list[str]:

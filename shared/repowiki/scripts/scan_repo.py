@@ -12,6 +12,8 @@ from __future__ import annotations
 import argparse
 import fnmatch
 import json
+import posixpath
+import re
 import sys
 from collections import Counter, defaultdict
 from pathlib import Path
@@ -40,6 +42,96 @@ DOC_DIRS = {"docs", "doc", "documentation", "wiki"}
 SOFT_MANIFESTS = {"Makefile", "CMakeLists.txt", "tsconfig.json"}  # only meaningful at the repo root
 INFRA_PATTERNS = ["Dockerfile*", "docker-compose*", "*.tf", "k8s/*", "kubernetes/*", "helm/*", "charts/*", ".env.example", ".env.sample", "Procfile", "serverless.yml", "fly.toml", "vercel.json", "netlify.toml"]
 WORKSPACE_DIRS = {"packages", "apps", "services", "libs", "crates", "modules", "plugins", "projects", "cmd", "internal", "pkg"}
+
+
+# ---------------------------------------------------------------- multi-repo workspaces
+REF_MANIFESTS = {"package.json", "pyproject.toml", "setup.cfg", "setup.py", "Cargo.toml", "go.mod", "pom.xml",
+                 "build.gradle", "build.gradle.kts", "Gemfile", "composer.json", "pubspec.yaml", "mix.exs"}
+GENERIC_NAMES = {"api", "app", "web", "core", "lib", "src", "test", "tests", "common", "utils", "server", "client", "service", "shared"}
+PATH_REFS = [re.compile(p, re.M) for p in (
+    r"""(?:file|link|portal):(\.{1,2}/[^"'\s,)]+)""",           # npm/yarn local deps
+    r"""path\s*=\s*["'](\.{1,2}/[^"']+)["']""",                  # Cargo / pyproject path deps
+    r"""=>\s*(\.{1,2}/\S+)""",                                   # go.mod replace
+    r"""^\s*-e\s+(\.{1,2}/\S+)""",                                # pip editable
+    r"""^\s*(?:context|build)\s*:\s*["']?(\.{1,2}/[^"'\s]+)""",  # docker compose build contexts
+)]
+
+
+def _read(path: Path, limit: int = 200_000) -> str:
+    try:
+        return path.read_text(encoding="utf-8", errors="replace")[:limit]
+    except OSError:
+        return ""
+
+
+def _is_ref_file(rel: str) -> bool:
+    n = Path(rel).name
+    return (n in REF_MANIFESTS or (n.startswith("requirements") and n.endswith(".txt"))
+            or bool(re.match(r"(docker-)?compose.*\.ya?ml$", n)) or n == ".gitmodules")
+
+
+def _declared_names(text: str, fname: str) -> set[str]:
+    names: set[str] = set()
+    if fname == "package.json":
+        try:
+            n = json.loads(text).get("name")
+            if isinstance(n, str):
+                names.add(n)
+        except ValueError:
+            pass
+    elif fname in ("pyproject.toml", "setup.cfg", "Cargo.toml"):
+        m = re.search(r"""^\s*name\s*=\s*["']?([^"'\s]+)""", text, re.M)
+        if m:
+            names |= {m.group(1), m.group(1).replace("_", "-")}
+    elif fname == "go.mod":
+        m = re.search(r"^module\s+(\S+)", text, re.M)
+        if m:
+            names.add(m.group(1))
+    return names
+
+
+def cross_repo_hints(root: Path, nested: list[str], files: list[str]) -> list[str]:
+    """Heuristic links between repositories: path dependencies, compose build contexts, submodules, and
+    manifests that depend on a sibling repo's declared package name. Hints only; the agent verifies them."""
+    if len(nested) < 1:
+        return []
+
+    def repo_of(p: str) -> str | None:
+        best = None
+        for r in nested:
+            if (p == r or p.startswith(r + "/")) and (best is None or len(r) > len(best)):
+                best = r
+        return best
+
+    ref_files = [f for f in files if _is_ref_file(f) and len(Path(f).parts) <= 3]
+    provides: dict[str, set[str]] = {r: set() for r in nested}
+    texts = {f: _read(root / f) for f in ref_files}
+    for f, t in texts.items():
+        r = repo_of(f)
+        if r:
+            provides[r] |= _declared_names(t, Path(f).name)
+
+    hints: dict[tuple, str] = {}
+    for f, t in texts.items():
+        src = repo_of(f) or "(workspace root)"
+        if Path(f).name == ".gitmodules":
+            for m in re.finditer(r"path\s*=\s*(\S+)", t):
+                hints[(src, m.group(1), "sm")] = f"{src} -> {m.group(1)}: git submodule declared in `{f}`"
+            continue
+        for rx in PATH_REFS:
+            for m in rx.finditer(t):
+                target = posixpath.normpath(posixpath.join(posixpath.dirname(f), m.group(1)))
+                dst = repo_of(target)
+                if dst and dst != src:
+                    hints[(src, dst, "path", f)] = f"{src} -> {dst}: path reference `{m.group(1)}` in `{f}`"
+        tokens = set(re.findall(r"[A-Za-z0-9_.@/\-]+", t))
+        for dst, names in provides.items():
+            if dst == src:
+                continue
+            for n in names:
+                if len(n) >= 3 and n in tokens and not (n.lower() in GENERIC_NAMES):
+                    hints[(src, dst, "name", f)] = f"{src} -> {dst}: `{f}` mentions its package name `{n}`"
+    return sorted(hints.values())
 
 
 def count_lines(path: Path) -> int:
@@ -137,6 +229,25 @@ def main() -> int:
             "dirty": bool((wl.git(repo, "status", "--porcelain") or "").strip()),
         }
 
+    nested = wl.find_nested_repos(repo)
+    repos_info = []
+    for r in nested:
+        pref, g = r + "/", repo / r
+        fl = [f for f in file_loc if f.startswith(pref)]
+        langs: Counter = Counter()
+        for f in fl:
+            langs[wl.language_of(f)] += file_loc[f]
+        repos_info.append({
+            "path": r, "head": wl.head_commit(g),
+            "branch": (wl.git(g, "rev-parse", "--abbrev-ref", "HEAD") or "").strip(),
+            "remote": (wl.git(g, "config", "--get", "remote.origin.url") or "").strip(),
+            "dirty": bool((wl.git(g, "status", "--porcelain") or "").strip()),
+            "source_files": sum(1 for f in fl if wl.is_source(f)), "loc": sum(file_loc[f] for f in fl),
+            "main_language": langs.most_common(1)[0][0] if langs else "",
+        })
+    hints = cross_repo_hints(repo, nested, files)
+    workspace_mode = len(nested) >= 2 or (len(nested) == 1 and not git_info)
+
     largest = sorted(((f, n) for f, n in file_loc.items() if wl.is_source(f)), key=lambda kv: -kv[1])[:15]
     inventory = {
         "repo": str(repo), "name": repo.name, "git": git_info, "size_class": size_class,
@@ -145,6 +256,7 @@ def main() -> int:
         "languages": {l: {"files": lang_files[l], "loc": lang_loc[l]} for l, _ in lang_loc.most_common()},
         "manifests": manifests, "entry_point_candidates": entries,
         "ci": ci, "infra": infra, "docs": docs[:40], "test_files": len(tests), "generated_or_lock_files": len(generated),
+        "workspace_mode": workspace_mode, "repositories": repos_info, "cross_repo_hints": hints,
         "directories": {k: {"files": v["files"], "loc": v["loc"], "langs": dict(v["langs"].most_common(3))} for k, v in top_dirs},
         "largest_files": [{"path": p, "loc": n} for p, n in largest],
     }
@@ -155,10 +267,25 @@ def main() -> int:
     if git_info:
         out.append(f"- Git: HEAD `{git_info['head']}` on `{git_info['branch']}`" + (" (uncommitted changes present)" if git_info["dirty"] else "")
                    + (f", remote {git_info['remote']}" if git_info["remote"] else ""))
+    elif nested:
+        out.append(f"- Git: the root is not a git repository, but {len(nested)} nested repositories were found (see below)")
     else:
         out.append("- Git: not a git checkout (update mode will fall back to file mtimes)")
     out.append(f"- Size: **{size_class}** ({n_src} source files, {len(files)} files total, {len(tests)} test files, {len(generated)} generated/lock files skipped)")
     out.append(f"- Monorepo signals: {'yes' if monorepo else 'no'}" + (f" (workspace roots: {', '.join(workspace_roots)})" if workspace_roots else ""))
+    if nested:
+        out.append(f"- **Workspace mode: {'yes' if workspace_mode else 'no'}** ({len(nested)} nested repositories; one wiki at this root, paths relative to it)")
+        out += ["", "## Repositories", "", "| Path | Branch | HEAD | Source files | LOC | Main language | Dirty |", "|---|---|---|---:|---:|---|---|"]
+        out += [f"| `{r['path']}` | {r['branch']} | `{r['head'] or '-'}` | {r['source_files']} | {r['loc']:,} | {r['main_language']} | {'yes' if r['dirty'] else 'no'} |" for r in repos_info]
+        stamps = [f"  - {r['path']}@{r['head']}" for r in repos_info if r["head"]]
+        if stamps:
+            out += ["", "Page frontmatter stamp (list only the repos a page's `sources` touch):", "", "```yaml", "commits:"] + stamps + ["```"]
+        if hints:
+            out += ["", "## Cross-repo hints (heuristic; verify by reading the files)", ""] + [f"- {h}" for h in hints[:40]]
+            if len(hints) > 40:
+                out.append(f"- … and {len(hints) - 40} more in the JSON output")
+        else:
+            out += ["", "No cross-repo references detected in manifests or compose files; look for URLs, env vars and shared contracts."]
     out += ["", "## Languages", "", "| Language | Files | LOC |", "|---|---:|---:|"]
     out += [f"| {l} | {v['files']} | {v['loc']:,} |" for l, v in list(inventory["languages"].items())[:10]]
     out += ["", f"## Directories (depth {args.depth}, by LOC)", "", "| Path | Files | LOC | Main languages |", "|---|---:|---:|---|"]

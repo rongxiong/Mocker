@@ -1,6 +1,6 @@
 # Wiki structure and page templates
 
-Contents: [Standard tree](#standard-tree) · [Emphasis by repo type](#emphasis-by-repo-type) · [Templates](#templates) (index, overview, architecture, getting-started, module, API, CLI, config, data model, testing, deployment, contributing, glossary)
+Contents: [Standard tree](#standard-tree) · [Workspace of related repos](#workspace-of-related-repos) · [Emphasis by repo type](#emphasis-by-repo-type) · [Templates](#templates) (index, overview, architecture, getting-started, module, API, CLI, config, data model, testing, deployment, contributing, glossary)
 
 ## Standard tree
 
@@ -29,6 +29,49 @@ repowiki/
 
 Monorepo: keep `index.md`, `overview.md`, `architecture.md` at the root for the cross-package picture, then nest `packages/<name>/index.md` + `packages/<name>/modules/*.md`. Link each package index from the root index.
 
+## Workspace of related repos
+
+For a root that holds several repositories (see SKILL.md, *Workspace of related repos*). One wiki at the root; every path is workspace-relative and starts with the repo folder.
+
+```
+repowiki/
+├── index.md                  # home: states the root, lists every repo and page
+├── overview.md               # what the system is; table of repos and their roles
+├── architecture.md           # repos as nodes, labeled edges, cross-repo sequence diagrams
+├── getting-started.md        # bring the whole system up, in order
+├── reference/
+│   └── integration.md        # every contract between repos, cited on both sides
+├── repos/
+│   ├── <main-app>/
+│   │   ├── index.md          # the repo's own overview (sources: that repo's key files)
+│   │   └── modules/<x>.md    # as in a single-repo wiki
+│   └── <other-repo>/ ...
+└── _plan.md
+```
+
+Frontmatter for any page that cites code from several repos stamps each one:
+
+```yaml
+sources:
+  - app/src/api/
+  - service/svc/routes.py
+commits:
+  - app@f364c52
+  - service@7096c95
+```
+
+**overview.md** adds a *Repositories* table: repo · role (main app / library / service / SDK / infra / tooling) · language · what it depends on · link to its section. **architecture.md** uses one flowchart with repos as nodes (edge labels say *how*: `file:` dependency, HTTP, queue topic, shared schema) and one sequence diagram per user-visible flow that crosses repos.
+
+**reference/integration.md** — one row per contract:
+
+| Caller | Callee | Mechanism | Contract | Caller code | Callee code |
+|---|---|---|---|---|---|
+| `app` | `service` | HTTP `POST /v1/orders` | request/response shapes, auth | `app/src/api.ts:30-48` | `service/svc/routes.py:12-40` |
+
+Add sections for shared schemas and versioning (who owns the definition, how it is published), configuration that must agree across repos (ports, URLs, env vars; names only), and the order and conditions for deploying them. Where only one side of a relationship is visible, say so in the row.
+
+**repos/<name>/index.md** follows the module template: purpose, structure, public interface or entry points, how it relates to the other repos (link to the integration page), and links to its module pages.
+
 ## Emphasis by repo type
 
 | Repo type | Spend the most words on |
@@ -54,7 +97,7 @@ commit: <short sha>
 ---
 # <Project> Wiki
 
-One paragraph: what the project is and who this wiki is for. State scope if partial
+One paragraph: what the project is and who this wiki is for. State the root folder if it isn't the git root ("Paths are relative to `packages/api/`"). State scope if partial
 ("Covers the `server/` and `shared/` packages; `legacy/` is not documented.").
 
 ## Start here
